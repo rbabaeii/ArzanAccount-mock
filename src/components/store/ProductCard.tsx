@@ -31,14 +31,14 @@ export default function ProductCard({ product }: { product: Product }) {
 
   return (
     <article
-      className={`group relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border rounded-2xl overflow-hidden shadow-card hover:shadow-xl hover:shadow-teal-500/10 hover:-translate-y-1.5 transition-all duration-300 flex flex-col h-full ${
+      className={`group relative glass-card rounded-2xl overflow-hidden card-3d-interactive flex flex-col h-full ${
         isOutOfStock
-          ? "border-slate-200 dark:border-slate-800/80 opacity-60 grayscale-[40%] hover:grayscale-0 hover:opacity-95"
-          : "border-brand-border dark:border-slate-800 hover:border-teal-400/40 dark:hover:border-teal-400/30"
+          ? "border-slate-200/60 dark:border-slate-800/80 opacity-60 grayscale-[40%] hover:grayscale-0 hover:opacity-95"
+          : "border-brand-border/80 dark:border-slate-800/80 hover:border-teal-500/50 dark:hover:border-teal-400/40 shadow-card hover:shadow-3d"
       }`}
     >
-      {/* Corner glow orb */}
-      <div className="absolute -top-10 -right-10 w-24 h-24 bg-teal-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-500 pointer-events-none z-10" />
+      {/* Dynamic 3D ambient hover lighting orb */}
+      <div className="absolute -top-12 -right-12 w-28 h-28 bg-gradient-to-br from-teal-400/20 to-emerald-400/10 rounded-full blur-2xl group-hover:scale-150 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none z-10" />
 
       {/* Media Box */}
       <div className="relative aspect-square w-full bg-brand-surfaceDim dark:bg-slate-800/60 overflow-hidden">

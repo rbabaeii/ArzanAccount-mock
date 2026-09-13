@@ -115,3 +115,70 @@ export function BreadcrumbJsonLd({ items }: BreadcrumbJsonLdProps) {
   );
 }
 
+interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+interface FaqJsonLdProps {
+  items: FaqItem[];
+}
+
+export function FaqJsonLd({ items }: FaqJsonLdProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+}
+
+interface WebSiteJsonLdProps {
+  name: string;
+  url: string;
+  potentialActionUrl?: string;
+}
+
+export function WebSiteJsonLd({
+  name,
+  url,
+  potentialActionUrl,
+}: WebSiteJsonLdProps) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name,
+    url,
+    ...(potentialActionUrl
+      ? {
+          potentialAction: {
+            "@type": "SearchAction",
+            target: `${potentialActionUrl}?q={search_term_string}`,
+            "query-input": "required name=search_term_string",
+          },
+        }
+      : {}),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+    />
+  );
+}
+
+

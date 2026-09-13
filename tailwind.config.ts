@@ -79,6 +79,28 @@ const config: Config = {
       boxShadow: {
         card: "0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.04)",
         cardHover: "0 10px 25px -5px rgba(0, 90, 113, 0.1), 0 8px 10px -6px rgba(0, 90, 113, 0.05)",
+        glass: "0 8px 32px 0 rgba(0, 0, 0, 0.08)",
+        "glass-dark": "0 8px 32px 0 rgba(0, 0, 0, 0.37)",
+        "3d": "0 20px 25px -5px rgba(0, 90, 113, 0.15), 0 8px 10px -6px rgba(0, 90, 113, 0.1)",
+        "3d-hover": "0 25px 35px -5px rgba(0, 90, 113, 0.25), 0 15px 15px -7px rgba(0, 90, 113, 0.15)",
+        "glow-teal": "0 0 25px -5px rgba(14, 116, 144, 0.45)",
+        "glow-amber": "0 0 25px -5px rgba(217, 119, 6, 0.4)",
+        "glow-purple": "0 0 25px -5px rgba(124, 58, 237, 0.35)",
+      },
+      animation: {
+        "float-slow": "floatSlow 6s ease-in-out infinite",
+        "float-delayed": "floatSlow 7s ease-in-out 2s infinite",
+        "glow-pulse": "glowPulse 4s ease-in-out infinite",
+      },
+      keyframes: {
+        floatSlow: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        glowPulse: {
+          "0%, 100%": { opacity: "0.5", transform: "scale(1)" },
+          "50%": { opacity: "0.9", transform: "scale(1.04)" },
+        },
       },
     },
   },
