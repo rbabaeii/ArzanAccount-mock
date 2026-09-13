@@ -4,7 +4,7 @@ import { ShieldCheck, Zap, Headphones, RefreshCw, Lock, Send } from "lucide-reac
 
 export default function Footer() {
   return (
-    <footer className="bg-slate-900 text-white border-t border-slate-800 mt-20">
+    <footer className="bg-slate-900 text-white border-t border-slate-800 mt-20 pb-20 sm:pb-0">
       {/* 4 Value Pillars */}
       <div className="border-b border-slate-800 bg-slate-950/60 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

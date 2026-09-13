@@ -39,9 +39,9 @@ interface ProductJsonLdProps {
   image: string;
   sku: string;
   priceRial: number;
-  priceToman: number;
-  ratingValue: number;
-  reviewCount: number;
+  priceToman?: number;
+  ratingValue?: number;
+  reviewCount?: number;
   inStock: boolean;
   category: string;
 }
@@ -57,12 +57,16 @@ export function ProductJsonLd({
   inStock,
   category,
 }: ProductJsonLdProps) {
+  const nextYear = new Date();
+  nextYear.setFullYear(nextYear.getFullYear() + 1);
+  const priceValidUntil = nextYear.toISOString().split("T")[0];
+
   const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
     name,
     image,
-    description,
+    description: description ? description.replace(/<[^>]+>/g, "").slice(0, 300) : name,
     sku,
     category,
     offers: {
@@ -70,17 +74,23 @@ export function ProductJsonLd({
       url: `https://arzanaccount.ir/products/${sku}`,
       priceCurrency: "IRR",
       price: priceRial,
-      priceValidUntil: "2026-12-31",
+      priceValidUntil,
       availability: inStock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue,
-      reviewCount,
-    },
+    ...(ratingValue && reviewCount && reviewCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(ratingValue.toFixed(1)),
+            reviewCount,
+            bestRating: "5",
+            worstRating: "1",
+          },
+        }
+      : {}),
   };
 
   return (

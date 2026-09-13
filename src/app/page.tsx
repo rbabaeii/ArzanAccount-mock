@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import Header from "@/components/store/Header";
 import Footer from "@/components/store/Footer";
 import ProductCard from "@/components/store/ProductCard";
-import { OrganizationJsonLd } from "@/components/seo/JsonLd";
+import { OrganizationJsonLd, WebSiteJsonLd, FaqJsonLd } from "@/components/seo/JsonLd";
+import Card3D from "@/components/ui/Card3D";
+import AmbientGlow from "@/components/ui/AmbientGlow";
 import { useStore } from "@/context/StoreContext";
 import {
   Sparkles,
@@ -22,10 +24,33 @@ import {
   Gift,
   Wallet,
   Users,
+  CheckCircle2,
+  ChevronDown,
+  ShieldCheck,
+  Zap,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import Pagination from "@/components/ui/Pagination";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPrice } from "@/lib/format";
+
+const homeFaqItems = [
+  {
+    question: "اکانت‌ها چگونه تحویل داده می‌شوند؟",
+    answer:
+      "بلافاصله پس از پرداخت، مشخصات اکانت یا لینک دعوت به ایمیل شما ارسال شده و در صفحه «پیگیری سفارش» سایت نیز با کد پیگیری قابل مشاهده است.",
+  },
+  {
+    question: "آیا اشتراک‌ها دارای گارانتی هستند؟",
+    answer:
+      "بله، تمامی اکانت‌های ما دارای ضمانت کامل در تمام طول مدت اشتراک هستند. در صورت بروز هرگونه مشکل فنی، اکانت جایگزین فوراً تحویل داده خواهد شد.",
+  },
+  {
+    question: "نحوه محاسبه قیمت‌ها در ارزان اکانت چگونه است؟",
+    answer:
+      "قیمت‌ها بر پایه نرخ روز ارز رسمی با اعمال تخفیف‌های عمده شرکتی محاسبه شده تا خریدار همواره ارزان‌ترین قیمت بازار را دریافت کند.",
+  },
+];
 
 export default function HomePage() {
   const { activeProducts, categories, calculateProductPrice, settings } = useStore();
@@ -35,6 +60,8 @@ export default function HomePage() {
   const [inStockOnly, setInStockOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const formattedUsdRate = formatPrice(Math.round(settings.usdToRialRate / 10));
 
   // Mobile initial page size detection (fewer items per page on mobile as requested)
   React.useEffect(() => {
@@ -119,69 +146,124 @@ export default function HomePage() {
         logo="https://arzanaccount.ir/logo.png"
         description="خرید آنلاین و ارزان انواع اکانت و اشتراک هوش مصنوعی، فیلم و سریال و شبکه‌های اجتماعی با تحویل آنی"
       />
+      <WebSiteJsonLd
+        name="ارزان اکانت"
+        url="https://arzanaccount.ir"
+        potentialActionUrl="https://arzanaccount.ir/products"
+      />
+      <FaqJsonLd items={homeFaqItems} />
 
       <Header />
 
-      {/* Hero Section (Stitch Dynamic Teal Style) */}
+      {/* Hero Section (3D & Hyperrealism + Ambient Glow) */}
       <section className="relative overflow-hidden bg-gradient-to-b from-teal-950 via-brand-primaryDark to-brand-primary text-white py-16 sm:py-24">
+        {/* Ambient Glow Orbs */}
+        <AmbientGlow variant="teal" className="-top-32 -left-32 opacity-30" />
+        <AmbientGlow variant="amber" className="-bottom-20 -right-20 opacity-20" />
+
         {/* Background Decorative Mesh */}
         <div className="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#2dd4bf_1px,transparent_1px)] [background-size:24px_24px]" />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-3xl space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-teal-200 text-xs font-semibold border border-white/15">
-              <Sparkles className="w-3.5 h-3.5 text-brand-accent" />
-              <span>پلتفرم تخصصی اشتراک‌های بین‌المللی ارزان اکانت</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            {/* Left/Main Column: Headings & CTA */}
+            <div className="lg:col-span-7 space-y-6">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-teal-200 text-xs font-semibold border border-white/15">
+                <Sparkles className="w-3.5 h-3.5 text-brand-accent" />
+                <span>پلتفرم تخصصی اشتراک‌های بین‌المللی ارزان اکانت</span>
+              </div>
+
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.2] text-white">
+                اشتراک قانونی انواع سرویس‌های جهانی با <span className="text-brand-accent">کمترین نرخ ریالی</span>
+              </h1>
+
+              <p className="text-sm sm:text-base text-teal-100/90 leading-relaxed font-normal max-w-2xl">
+                خرید اشتراک قانونی و پرمیوم انواع اکانت‌های هوش مصنوعی (ChatGPT Plus، Gemini Pro)، فیلم و سریال، موزیک، تلگرام پرمیوم و خدمات شبکه‌های اجتماعی با گارانتی کامل و تحویل فوری.
+              </p>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <a
+                  href="#catalog-section"
+                  className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs sm:text-sm px-7 py-3.5 rounded-xl transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:shadow-amber-500/20 hover:scale-105"
+                >
+                  <span>مشاهده محصولات و خرید آنی</span>
+                  <ArrowLeft className="w-4 h-4" />
+                </a>
+
+                <Link
+                  href="/orders"
+                  className="bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs sm:text-sm px-6 py-3.5 rounded-xl transition-all duration-200 border border-white/15 flex items-center gap-2 hover:scale-105"
+                >
+                  <span>رهگیری سفارش و لایسنس</span>
+                </Link>
+              </div>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.2] text-white">
-              اشتراک قانونی انواع سرویس‌های جهانی با <span className="text-brand-accent">کمترین نرخ ریالی</span>
-            </h1>
+            {/* Right Column: 3D Luxury Feature Card */}
+            <div className="hidden lg:block lg:col-span-5">
+              <Card3D maxTilt={7} glareEffect={true} className="glass-card rounded-3xl p-6 border border-white/20 shadow-2xl bg-white/10 dark:bg-slate-900/40 backdrop-blur-xl">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/15">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-xl bg-teal-400/20 text-teal-300 flex items-center justify-center font-bold shadow-xs">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-white">ارزان اکانت اکسپرس</h3>
+                        <span className="text-[10px] text-teal-200">تحویل خودکار لایسنس دیجیتال</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-bold">
+                      فعال ۲۴/۷
+                    </span>
+                  </div>
 
-            <p className="text-sm sm:text-base text-teal-100/90 leading-relaxed font-normal max-w-2xl">
-              خرید اشتراک قانونی و پرمیوم انواع اکانت‌های هوش مصنوعی (ChatGPT Plus، Gemini Pro)، فیلم و سریال، موزیک، تلگرام پرمیوم و خدمات شبکه‌های اجتماعی با گارانتی کامل و تحویل فوری.
-            </p>
+                  <div className="space-y-2.5 text-xs text-teal-100/90">
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>تحویل آنی زیر ۲ دقیقه در پنل کاربری</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
+                      <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>گارانتی کامل و بی‌قیدوشرط تا پایان اشتراک</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
+                      <Lock className="w-4 h-4 text-teal-300 shrink-0" />
+                      <span>پرداخت امن کارت‌به‌کارت با تایید آنی</span>
+                    </div>
+                  </div>
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <a
-                href="#catalog-section"
-                className="bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs sm:text-sm px-7 py-3.5 rounded-xl transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl hover:shadow-amber-500/20 hover:scale-105"
-              >
-                <span>مشاهده محصولات و خرید آنی</span>
-                <ArrowLeft className="w-4 h-4" />
-              </a>
-
-              <Link
-                href="/orders"
-                className="bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs sm:text-sm px-6 py-3.5 rounded-xl transition-all duration-200 border border-white/15 flex items-center gap-2 hover:scale-105"
-              >
-                <span>رهگیری سفارش و لایسنس</span>
-              </Link>
+                  <div className="pt-2 flex items-center justify-between text-[11px] text-teal-200 border-t border-white/10">
+                    <span>نرخ مرجع محاسبه</span>
+                    <span className="font-mono font-bold text-amber-300">{formattedUsdRate} تومان</span>
+                  </div>
+                </div>
+              </Card3D>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Live Performance & Trust Strip */}
+      {/* Live Performance & Trust Strip (3D Perspective Cards) */}
       <section className="bg-white dark:bg-slate-900 border-b border-brand-border dark:border-slate-800 py-6 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center divide-x-reverse divide-x divide-brand-border dark:divide-slate-800">
-            <div className="space-y-1 hover:scale-105 transition-transform duration-200">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 text-center">
+            <Card3D maxTilt={5} glareEffect={true} className="glass-card rounded-2xl p-4 border border-brand-border/60 dark:border-slate-800 shadow-2xs hover:shadow-3d">
               <span className="text-xl sm:text-2xl font-black text-brand-primary dark:text-teal-400 font-mono">+14,500</span>
-              <p className="text-[11px] text-brand-muted dark:text-slate-400">سفارش موفق تحویل‌شده</p>
-            </div>
-            <div className="space-y-1 hover:scale-105 transition-transform duration-200">
-              <span className="text-xl sm:text-2xl font-black text-brand-primary dark:text-teal-400 font-mono">2 دقیقه</span>
-              <p className="text-[11px] text-brand-muted dark:text-slate-400">میانگین زمان صدور لایسنس</p>
-            </div>
-            <div className="space-y-1 hover:scale-105 transition-transform duration-200">
+              <p className="text-[11px] text-brand-muted dark:text-slate-400 mt-1 font-medium">سفارش موفق تحویل‌شده</p>
+            </Card3D>
+            <Card3D maxTilt={5} glareEffect={true} className="glass-card rounded-2xl p-4 border border-brand-border/60 dark:border-slate-800 shadow-2xs hover:shadow-3d">
+              <span className="text-xl sm:text-2xl font-black text-brand-primary dark:text-teal-400 font-mono">۲ دقیقه</span>
+              <p className="text-[11px] text-brand-muted dark:text-slate-400 mt-1 font-medium">میانگین زمان صدور لایسنس</p>
+            </Card3D>
+            <Card3D maxTilt={5} glareEffect={true} className="glass-card rounded-2xl p-4 border border-brand-border/60 dark:border-slate-800 shadow-2xs hover:shadow-3d">
               <span className="text-xl sm:text-2xl font-black text-brand-primary dark:text-teal-400 font-mono">99.4%</span>
-              <p className="text-[11px] text-brand-muted dark:text-slate-400">رضایت خریداران و دولوپرها</p>
-            </div>
-            <div className="space-y-1 hover:scale-105 transition-transform duration-200">
+              <p className="text-[11px] text-brand-muted dark:text-slate-400 mt-1 font-medium">رضایت خریداران و دولوپرها</p>
+            </Card3D>
+            <Card3D maxTilt={5} glareEffect={true} className="glass-card rounded-2xl p-4 border border-brand-border/60 dark:border-slate-800 shadow-2xs hover:shadow-3d">
               <span className="text-xl sm:text-2xl font-black text-brand-primary dark:text-teal-400 font-mono">24/7</span>
-              <p className="text-[11px] text-brand-muted dark:text-slate-400">پشتیبانی تلگرام و آنلاین</p>
-            </div>
+              <p className="text-[11px] text-brand-muted dark:text-slate-400 mt-1 font-medium">پشتیبانی تلگرام و آنلاین</p>
+            </Card3D>
           </div>
         </div>
       </section>
@@ -627,39 +709,39 @@ export default function HomePage() {
             <p className="text-xs text-brand-muted dark:text-slate-400 mt-1">پاسخ به رایج‌ترین سوالات شما پیش از خرید اشتراک</p>
           </div>
 
-          <div className="space-y-4">
-            <div className="group relative overflow-hidden bg-brand-surfaceDim dark:bg-slate-800/60 p-5 rounded-2xl border border-brand-border dark:border-slate-700/60 hover:border-teal-400/40 dark:hover:border-teal-400/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-200">
-              <div className="absolute -top-8 -right-8 w-16 h-16 bg-teal-500/10 rounded-full blur-xl group-hover:scale-150 transition-all duration-500 pointer-events-none" />
-              <h4 className="font-bold text-xs sm:text-sm text-brand-dark dark:text-white flex items-center gap-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                <HelpCircle className="w-4 h-4 text-brand-primary dark:text-teal-400 shrink-0 group-hover:scale-110 transition-transform" />
-                <span>اکانت‌ها چگونه تحویل داده می‌شوند؟</span>
-              </h4>
-              <p className="text-xs text-brand-muted dark:text-slate-300 mt-2 leading-relaxed pr-6">
-                بلافاصله پس از پرداخت، مشخصات اکانت یا لینک دعوت به ایمیل شما ارسال شده و در صفحه «پیگیری سفارش» سایت نیز با کد پیگیری قابل مشاهده است.
-              </p>
-            </div>
+          <div className="space-y-3">
+            {homeFaqItems.map((faq, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div
+                  key={faq.question}
+                  className="group relative overflow-hidden glass-card rounded-2xl border border-brand-border dark:border-slate-800 transition-all duration-300"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center justify-between p-5 text-right font-bold text-xs sm:text-sm text-brand-dark dark:text-white hover:text-teal-600 dark:hover:text-teal-400 transition-colors focus:outline-none"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <HelpCircle className="w-4 h-4 text-brand-primary dark:text-teal-400 shrink-0" />
+                      <span>{faq.question}</span>
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-slate-400 transition-transform duration-300 shrink-0 ${
+                        isOpen ? "rotate-180 text-teal-600 dark:text-teal-400" : ""
+                      }`}
+                    />
+                  </button>
 
-            <div className="group relative overflow-hidden bg-brand-surfaceDim dark:bg-slate-800/60 p-5 rounded-2xl border border-brand-border dark:border-slate-700/60 hover:border-teal-400/40 dark:hover:border-teal-400/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-200">
-              <div className="absolute -top-8 -right-8 w-16 h-16 bg-teal-500/10 rounded-full blur-xl group-hover:scale-150 transition-all duration-500 pointer-events-none" />
-              <h4 className="font-bold text-xs sm:text-sm text-brand-dark dark:text-white flex items-center gap-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                <HelpCircle className="w-4 h-4 text-brand-primary dark:text-teal-400 shrink-0 group-hover:scale-110 transition-transform" />
-                <span>آیا اشتراک‌ها دارای گارانتی هستند؟</span>
-              </h4>
-              <p className="text-xs text-brand-muted dark:text-slate-300 mt-2 leading-relaxed pr-6">
-                بله، تمامی اکانت‌های ما دارای ضمانت کامل در تمام طول مدت اشتراک هستند. در صورت بروز هرگونه مشکل فنی، اکانت جایگزین فوراً تحویل داده خواهد شد.
-              </p>
-            </div>
-
-            <div className="group relative overflow-hidden bg-brand-surfaceDim dark:bg-slate-800/60 p-5 rounded-2xl border border-brand-border dark:border-slate-700/60 hover:border-teal-400/40 dark:hover:border-teal-400/30 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-teal-500/5 transition-all duration-200">
-              <div className="absolute -top-8 -right-8 w-16 h-16 bg-teal-500/10 rounded-full blur-xl group-hover:scale-150 transition-all duration-500 pointer-events-none" />
-              <h4 className="font-bold text-xs sm:text-sm text-brand-dark dark:text-white flex items-center gap-2 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                <HelpCircle className="w-4 h-4 text-brand-primary dark:text-teal-400 shrink-0 group-hover:scale-110 transition-transform" />
-                <span>نحوه محاسبه قیمت‌ها در ارزان اکانت چگونه است؟</span>
-              </h4>
-              <p className="text-xs text-brand-muted dark:text-slate-300 mt-2 leading-relaxed pr-6">
-                قیمت‌ها بر پایه نرخ روز ارز رسمی با اعمال تخفیف‌های عمده شرکتی محاسبه شده تا خریدار همواره ارزان‌ترین قیمت بازار را دریافت کند.
-              </p>
-            </div>
+                  {isOpen && (
+                    <div className="px-5 pb-5 pt-0 text-xs text-brand-muted dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-slate-800/80 animate-fadeIn">
+                      <p className="pt-3 pr-6">{faq.answer}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

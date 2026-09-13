@@ -13,8 +13,12 @@ export default function MobileBottomNav() {
   const { cart } = useStore();
   const { isAuthenticated, openLoginModal } = useAuth();
 
-  // Hide on admin routes or when inside full checkout payment flow
-  if (pathname.startsWith("/admin") || pathname.startsWith("/payment/card")) {
+  // Hide on admin routes or when inside full checkout & payment flow
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/payment/card") ||
+    pathname.startsWith("/checkout")
+  ) {
     return null;
   }
 
