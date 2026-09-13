@@ -48,7 +48,23 @@ export default function CategoryPage() {
     }
   }, []);
 
-  const currentCategory = categories.find((c) => c.slug === slug);
+  const decodedSlug = useMemo(() => {
+    try {
+      return decodeURIComponent(slug || "");
+    } catch {
+      return slug || "";
+    }
+  }, [slug]);
+
+  const currentCategory = categories.find(
+    (c) => c.slug === slug || c.slug === decodedSlug
+  );
+
+  useEffect(() => {
+    if (currentCategory?.title) {
+      document.title = `خرید اشتراک‌های ${currentCategory.title} | ارزان اکانت`;
+    }
+  }, [currentCategory?.title]);
 
   // Theme customization based on category type
   const theme = useMemo(() => {
@@ -143,6 +159,41 @@ export default function CategoryPage() {
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
+
+  if (!currentCategory) {
+    return (
+      <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-brand-dark dark:text-slate-100">
+        <Header />
+        <main className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-4">
+            <PackageX className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-brand-dark dark:text-white">
+            دسته‌بندی مورد نظر یافت نشد!
+          </h2>
+          <p className="text-xs text-brand-muted dark:text-slate-400 mt-2">
+            ممکن است آدرس وارد شده تغییر کرده یا حذف شده باشد.
+          </p>
+          <div className="flex items-center gap-3 mt-6">
+            <Link
+              href="/categories"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-md active:scale-95 transition-all"
+            >
+              <Layers className="w-4 h-4" />
+              <span>مشاهده تمام دسته‌بندی‌ها</span>
+            </Link>
+            <Link
+              href="/products"
+              className="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              <span>کاتالوگ کامل</span>
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors relative overflow-x-hidden">

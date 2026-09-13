@@ -41,7 +41,7 @@ export default function ProductCard({ product }: { product: Product }) {
       <div className="absolute -top-12 -right-12 w-28 h-28 bg-gradient-to-br from-teal-400/20 to-emerald-400/10 rounded-full blur-2xl group-hover:scale-150 group-hover:opacity-100 opacity-40 transition-all duration-500 pointer-events-none z-10" />
 
       {/* Media Box */}
-      <div className="relative aspect-square w-full bg-brand-surfaceDim dark:bg-slate-800/60 overflow-hidden">
+      <div className="relative aspect-square max-h-72 w-full bg-brand-surfaceDim dark:bg-slate-800/60 overflow-hidden">
         {product.image ? (
           <img
             src={product.image}
@@ -91,12 +91,12 @@ export default function ProductCard({ product }: { product: Product }) {
           </span>
         </div>
 
-        {/* Quick Add overlay button */}
+        {/* Quick Add overlay button (touch-accessible on mobile) */}
         {!isOutOfStock && (
           <button
             onClick={handleQuickAdd}
             title="افزودن سریع به سبد"
-            className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 text-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 active:scale-90 z-20"
+            className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 text-white flex items-center justify-center shadow-md sm:opacity-0 sm:group-hover:opacity-100 opacity-90 transition-all duration-300 hover:scale-110 active:scale-90 z-20"
           >
             <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>

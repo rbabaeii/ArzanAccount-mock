@@ -38,16 +38,47 @@ function ProductsContent() {
   const [sortBy, setSortBy] = useState<
     "popular" | "newest" | "price_asc" | "price_desc" | "rating" | "on_sale"
   >("popular");
-  const [maxPriceToman, setMaxPriceToman] = useState<number>(3000000);
+  const [maxPriceToman, setMaxPriceToman] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [mobileViewMode, setMobileViewMode] = useState<"grid" | "list">("grid");
 
+  // Determine highest price in catalog to safely set slider maximums
+  const highestPriceInCatalog = useMemo(() => {
+    if (activeProducts.length === 0) return 5000000;
+    const max = activeProducts.reduce((acc, p) => {
+      const price = calculateProductPrice(p).toman;
+      return price > acc ? price : acc;
+    }, 1000000);
+    return Math.max(3000000, Math.ceil(max / 500000) * 500000);
+  }, [activeProducts, calculateProductPrice]);
+
+  const currentMaxPrice = maxPriceToman ?? highestPriceInCatalog;
+
+  // Resolve category by ID or slug (e.g. ?category=ai or ?category=cat-ai)
+  const resolvedCategoryId = useMemo(() => {
+    if (selectedCat === "all") return "all";
+    const found = categories.find(
+      (c) => c.id === selectedCat || c.slug === selectedCat
+    );
+    return found ? found.id : selectedCat;
+  }, [selectedCat, categories]);
+
+  const selectedCategoryObj = categories.find(
+    (c) => c.id === resolvedCategoryId || c.id === selectedCat || c.slug === selectedCat
+  );
+
   // Sync initial query params if they change
   useEffect(() => {
-    if (initialSearch) setSearch(initialSearch);
-    if (initialCat) setSelectedCat(initialCat);
+    if (initialSearch) {
+      setSearch(initialSearch);
+      setCurrentPage(1);
+    }
+    if (initialCat) {
+      setSelectedCat(initialCat);
+      setCurrentPage(1);
+    }
   }, [initialSearch, initialCat]);
 
   // Adjust default page size on mobile
@@ -56,6 +87,17 @@ function ProductsContent() {
       setPageSize(6);
     }
   }, []);
+
+  // Update document.title on filter change
+  useEffect(() => {
+    if (selectedCategoryObj) {
+      document.title = `خرید اشتراک‌های ${selectedCategoryObj.title} | کاتالوگ ارزان اکانت`;
+    } else if (search.trim()) {
+      document.title = `نتایج جستجوی «${search.trim()}» | ارزان اکانت`;
+    } else {
+      document.title = "کاتالوگ و خرید انواع اکانت و اشتراک قانونی | ارزان اکانت";
+    }
+  }, [selectedCategoryObj, search]);
 
   // Filtered & Sorted list with in-stock priority
   const filteredProducts = useMemo(() => {
@@ -67,11 +109,13 @@ function ProductsContent() {
           p.customTitle.toLowerCase().includes(search.toLowerCase()) ||
           p.description?.toLowerCase().includes(search.toLowerCase());
 
-        const matchesCat = selectedCat === "all" || p.categoryId === selectedCat;
+        const matchesCat =
+          resolvedCategoryId === "all" || p.categoryId === resolvedCategoryId;
         const matchesStock = !inStockOnly || p.inStock;
 
         const price = calculateProductPrice(p);
-        const matchesPrice = price.toman <= maxPriceToman;
+        const matchesPrice =
+          maxPriceToman === null || price.toman <= maxPriceToman;
         const matchesSale =
           sortBy !== "on_sale" || Boolean(price.isOnSale || p.isFlashDeal);
 
@@ -111,7 +155,7 @@ function ProductsContent() {
   }, [
     activeProducts,
     search,
-    selectedCat,
+    resolvedCategoryId,
     inStockOnly,
     maxPriceToman,
     sortBy,
@@ -128,20 +172,18 @@ function ProductsContent() {
     (selectedCat !== "all" ? 1 : 0) +
     (inStockOnly ? 1 : 0) +
     (search.trim() ? 1 : 0) +
-    (maxPriceToman < 3000000 ? 1 : 0) +
+    (maxPriceToman !== null && maxPriceToman < highestPriceInCatalog ? 1 : 0) +
     (sortBy !== "popular" ? 1 : 0);
 
   const resetFilters = () => {
     setSearch("");
     setSelectedCat("all");
     setInStockOnly(false);
-    setMaxPriceToman(3000000);
+    setMaxPriceToman(null);
     setSortBy("popular");
     setCurrentPage(1);
     setMobileFiltersOpen(false);
   };
-
-  const selectedCategoryObj = categories.find((c) => c.id === selectedCat);
 
   return (
     <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors relative overflow-x-hidden">
@@ -390,15 +432,17 @@ function ProductsContent() {
                       حداکثر سقف قیمت:
                     </span>
                     <span className="font-bold text-teal-600 dark:text-teal-400 font-mono text-xs">
-                      {formatPrice(maxPriceToman)} تومان
+                      {maxPriceToman === null
+                        ? `بدون سقف (${formatPrice(highestPriceInCatalog)} ت)`
+                        : `${formatPrice(maxPriceToman)} تومان`}
                     </span>
                   </div>
                   <input
                     type="range"
                     min="100000"
-                    max="3000000"
+                    max={highestPriceInCatalog}
                     step="50000"
-                    value={maxPriceToman}
+                    value={currentMaxPrice}
                     onChange={(e) => setMaxPriceToman(Number(e.target.value))}
                     className="w-full accent-teal-600 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-lg"
                   />
@@ -558,15 +602,17 @@ function ProductsContent() {
                   حداکثر قیمت:
                 </span>
                 <span className="font-bold text-teal-600 dark:text-teal-400 font-mono">
-                  {formatPrice(maxPriceToman)} تومان
+                  {maxPriceToman === null
+                    ? `بدون سقف (${formatPrice(highestPriceInCatalog)} ت)`
+                    : `${formatPrice(maxPriceToman)} تومان`}
                 </span>
               </div>
               <input
                 type="range"
                 min="100000"
-                max="3000000"
+                max={highestPriceInCatalog}
                 step="50000"
-                value={maxPriceToman}
+                value={currentMaxPrice}
                 onChange={(e) => {
                   setMaxPriceToman(Number(e.target.value));
                   setCurrentPage(1);

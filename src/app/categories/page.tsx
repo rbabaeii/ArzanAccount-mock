@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Header from "@/components/store/Header";
 import Footer from "@/components/store/Footer";
 import { BreadcrumbJsonLd } from "@/components/seo/JsonLd";
@@ -33,6 +33,10 @@ import {
 export default function CategoriesArchivePage() {
   const { categories, activeProducts, products, calculateProductPrice } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    document.title = "دسته‌بندی جامع اشتراک‌ها و اکانت‌های دیجیتال | ارزان اکانت";
+  }, []);
 
   const getCategoryIcon = (iconName: string) => {
     switch (iconName) {
@@ -78,7 +82,7 @@ export default function CategoriesArchivePage() {
       }
 
       // Sample top 3 product names
-      const sampleItems = catProducts.slice(0, 3).map((p) => p.customTitle);
+      const sampleItems = catProducts.slice(0, 3).map((p) => p.customTitle || p.name);
 
       return {
         ...cat,
@@ -309,7 +313,7 @@ export default function CategoriesArchivePage() {
               onClick={() => setSearchTerm("")}
               className="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-teal-500/20 active:scale-95 transition-all"
             >
-              <span>نمایش همه ۳۳ دسته‌بندی</span>
+              <span>نمایش همه {categories.length} دسته‌بندی</span>
             </button>
           </div>
         )}

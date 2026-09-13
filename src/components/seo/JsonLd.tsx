@@ -79,6 +79,11 @@ export function ProductJsonLd({
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
+      seller: {
+        "@type": "Organization",
+        name: "ارزان اکانت",
+        url: "https://arzanaccount.ir",
+      },
     },
     ...(ratingValue && reviewCount && reviewCount > 0
       ? {

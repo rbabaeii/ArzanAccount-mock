@@ -157,6 +157,12 @@ export default function ProductDetailPage() {
 
   const product = currentProduct || initialProduct;
 
+  useEffect(() => {
+    if (product?.customTitle) {
+      document.title = `خرید ${product.customTitle} | ارزان اکانت`;
+    }
+  }, [product?.customTitle]);
+
   const productTags: string[] = useMemo(() => {
     if (!product || !product.tags) return [];
     if (Array.isArray(product.tags)) return product.tags;
@@ -293,7 +299,12 @@ export default function ProductDetailPage() {
       <BreadcrumbJsonLd
         items={[
           { name: "صفحه اصلی", url: "https://arzanaccount.ir" },
-          { name: category?.title || "کاتالوگ", url: `https://arzanaccount.ir/category/${category?.slug || "all"}` },
+          {
+            name: category?.title || "کاتالوگ محصولات",
+            url: category
+              ? `https://arzanaccount.ir/category/${category.slug}`
+              : "https://arzanaccount.ir/products",
+          },
           { name: product.customTitle, url: `https://arzanaccount.ir/products/${product.id}` },
         ]}
       />
@@ -308,10 +319,17 @@ export default function ProductDetailPage() {
               صفحه اصلی
             </Link>
             <span>/</span>
-            {category && (
+            {category ? (
               <>
                 <Link href={`/category/${category.slug}`} className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors shrink-0">
                   {category.title}
+                </Link>
+                <span>/</span>
+              </>
+            ) : (
+              <>
+                <Link href="/products" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors shrink-0">
+                  کاتالوگ
                 </Link>
                 <span>/</span>
               </>
@@ -332,7 +350,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Main PDP Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 relative z-10 pb-28 sm:pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 relative z-10 pb-36 sm:pb-24 lg:pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
           {/* Main Visual & Info Column (7 cols) */}
           <div className="lg:col-span-7 space-y-8">
@@ -815,58 +833,60 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                {/* Quantity Selector */}
-                {price.isPerThousand ? (
-                  <div>
-                    <label className="block font-semibold text-brand-dark dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                      <span>تعداد درخواستی (حداقل {product.minQty || 500}):</span>
-                    </label>
-                    <input
-                      type="number"
-                      step="500"
-                      min={product.minQty || 500}
-                      max={product.maxQty || 100000}
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 text-brand-dark dark:text-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2.5 px-3 outline-none font-mono font-bold transition-all"
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold text-brand-dark dark:text-slate-200 block">تعداد سفارش:</span>
-                        <span className="text-[10.5px] text-slate-500 dark:text-slate-400">
-                          حداکثر سقف خرید: <strong className="font-mono text-teal-600 dark:text-teal-400">{maxAllowed}</strong> عدد
-                        </span>
-                      </div>
-                      <div className="flex items-center border border-brand-border dark:border-slate-700 rounded-xl bg-brand-surfaceDim dark:bg-slate-800 overflow-hidden shadow-2xs">
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          className="px-3.5 py-2 text-sm font-bold text-brand-muted dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 active:scale-90 transition-all cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <span className="px-4 py-2 font-mono font-bold text-brand-dark dark:text-white select-none">
-                          {quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(Math.min(maxAllowed, quantity + 1))}
-                          disabled={quantity >= maxAllowed}
-                          className={`px-3.5 py-2 text-sm font-bold transition-all ${
-                            quantity >= maxAllowed
-                              ? "text-neutral-300 dark:text-slate-600 cursor-not-allowed"
-                              : "text-brand-muted dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 active:scale-90 cursor-pointer"
-                          }`}
-                        >
-                          +
-                        </button>
+                {/* Quantity Selector (shown only if in stock) */}
+                {product.inStock && (
+                  price.isPerThousand ? (
+                    <div>
+                      <label className="block font-semibold text-brand-dark dark:text-slate-200 mb-1.5 flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                        <span>تعداد درخواستی (حداقل {product.minQty || 500}):</span>
+                      </label>
+                      <input
+                        type="number"
+                        step="500"
+                        min={product.minQty || 500}
+                        max={product.maxQty || 100000}
+                        value={quantity}
+                        onChange={(e) => setQuantity(Number(e.target.value))}
+                        className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 text-brand-dark dark:text-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2.5 px-3 outline-none font-mono font-bold transition-all"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-semibold text-brand-dark dark:text-slate-200 block">تعداد سفارش:</span>
+                          <span className="text-[10.5px] text-slate-500 dark:text-slate-400">
+                            حداکثر سقف خرید: <strong className="font-mono text-teal-600 dark:text-teal-400">{maxAllowed}</strong> عدد
+                          </span>
+                        </div>
+                        <div className="flex items-center border border-brand-border dark:border-slate-700 rounded-xl bg-brand-surfaceDim dark:bg-slate-800 overflow-hidden shadow-2xs">
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                            className="px-3.5 py-2 text-sm font-bold text-brand-muted dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 active:scale-90 transition-all cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <span className="px-4 py-2 font-mono font-bold text-brand-dark dark:text-white select-none">
+                            {quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(Math.min(maxAllowed, quantity + 1))}
+                            disabled={quantity >= maxAllowed}
+                            className={`px-3.5 py-2 text-sm font-bold transition-all ${
+                              quantity >= maxAllowed
+                                ? "text-neutral-300 dark:text-slate-600 cursor-not-allowed"
+                                : "text-brand-muted dark:text-slate-300 hover:bg-neutral-200 dark:hover:bg-slate-700 active:scale-90 cursor-pointer"
+                            }`}
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )
                 )}
               </div>
 
@@ -947,8 +967,8 @@ export default function ProductDetailPage() {
         )}
       </main>
 
-      {/* Sticky Mobile Purchase Bar (shows only on mobile, placed above MobileBottomNav) */}
-      <div className="lg:hidden fixed bottom-14 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-2.5 shadow-2xl flex items-center justify-between gap-3">
+      {/* Sticky Mobile Purchase Bar (sits above MobileBottomNav on mobile and flush at bottom on tablet) */}
+      <div className="lg:hidden fixed bottom-16 sm:bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-2.5 sm:py-3 shadow-2xl flex items-center justify-between gap-3">
         <div className="min-w-0">
           <span className="text-[10px] text-slate-400 block">قیمت نهایی:</span>
           <div className="flex items-baseline gap-1">
