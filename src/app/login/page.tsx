@@ -18,7 +18,11 @@ import {
   Mail,
   User,
   Gift,
+  Sparkles,
 } from "lucide-react";
+import AmbientGlow from "@/components/ui/AmbientGlow";
+import Card3D from "@/components/ui/Card3D";
+import OtpInput from "@/components/auth/OtpInput";
 
 const ADMIN_ACCOUNTS = [
   {
@@ -26,8 +30,8 @@ const ADMIN_ACCOUNTS = [
     name: "رضا بابایی",
     roleTitle: "مدیر ارشد سامانه (Super Admin)",
     scope: "دسترسی نامحدود به تمامی بخش‌ها",
-    border: "border-amber-300 dark:border-amber-700/80 hover:border-amber-400",
-    bg: "bg-amber-50/90 dark:bg-amber-950/40 hover:bg-amber-100/90 dark:hover:bg-amber-900/50",
+    border: "border-amber-400/60 dark:border-amber-600/50 hover:border-amber-400",
+    bg: "bg-amber-500/10 dark:bg-amber-950/40 hover:bg-amber-500/15",
     text: "text-amber-950 dark:text-amber-300",
     subtext: "text-amber-700 dark:text-amber-400/80",
     badge: "bg-amber-200/90 dark:bg-amber-900 text-amber-900 dark:text-amber-200",
@@ -37,8 +41,8 @@ const ADMIN_ACCOUNTS = [
     name: "محمد محمدی",
     roleTitle: "مدیر کاتالوگ و انبار",
     scope: "کنترل موجودی، ناموجودی‌ها و محصولات",
-    border: "border-blue-300 dark:border-blue-700/80 hover:border-blue-400",
-    bg: "bg-blue-50/90 dark:bg-blue-950/40 hover:bg-blue-100/90 dark:hover:bg-blue-900/50",
+    border: "border-blue-400/60 dark:border-blue-600/50 hover:border-blue-400",
+    bg: "bg-blue-500/10 dark:bg-blue-950/40 hover:bg-blue-500/15",
     text: "text-blue-950 dark:text-blue-300",
     subtext: "text-blue-700 dark:text-blue-400/80",
     badge: "bg-blue-200/90 dark:bg-blue-900 text-blue-900 dark:text-blue-200",
@@ -48,8 +52,8 @@ const ADMIN_ACCOUNTS = [
     name: "زهرا احمدی",
     roleTitle: "مدیر مالی و عودت وجه",
     scope: "شارژ کیف پول، استرداد وجه و تراکنش‌ها",
-    border: "border-emerald-300 dark:border-emerald-700/80 hover:border-emerald-400",
-    bg: "bg-emerald-50/90 dark:bg-emerald-950/40 hover:bg-emerald-100/90 dark:hover:bg-emerald-900/50",
+    border: "border-emerald-400/60 dark:border-emerald-600/50 hover:border-emerald-400",
+    bg: "bg-emerald-500/10 dark:bg-emerald-950/40 hover:bg-emerald-500/15",
     text: "text-emerald-950 dark:text-emerald-300",
     subtext: "text-emerald-700 dark:text-emerald-400/80",
     badge: "bg-emerald-200/90 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200",
@@ -59,8 +63,8 @@ const ADMIN_ACCOUNTS = [
     name: "علی صادقی",
     roleTitle: "مدیر پشتیبانی و سفارشات",
     scope: "بررسی سفارش‌های کاربران و تیکت‌ها",
-    border: "border-purple-300 dark:border-purple-700/80 hover:border-purple-400",
-    bg: "bg-purple-50/90 dark:bg-purple-950/40 hover:bg-purple-100/90 dark:hover:bg-purple-900/50",
+    border: "border-purple-400/60 dark:border-purple-600/50 hover:border-purple-400",
+    bg: "bg-purple-500/10 dark:bg-purple-950/40 hover:bg-purple-500/15",
     text: "text-purple-950 dark:text-purple-300",
     subtext: "text-purple-700 dark:text-purple-400/80",
     badge: "bg-purple-200/90 dark:bg-purple-900 text-purple-900 dark:text-purple-200",
@@ -72,8 +76,8 @@ const USER_ACCOUNT = {
   name: "کاربر عادی",
   roleTitle: "مشتری / خریدار فروشگاه",
   scope: "ثبت سفارش، سبد خرید و پیگیری تحویل",
-  border: "border-teal-300 dark:border-teal-700/80 hover:border-teal-400",
-  bg: "bg-teal-50/90 dark:bg-teal-950/40 hover:bg-teal-100/90 dark:hover:bg-teal-900/50",
+  border: "border-teal-400/60 dark:border-teal-600/50 hover:border-teal-400",
+  bg: "bg-teal-500/10 dark:bg-teal-950/40 hover:bg-teal-500/15",
   text: "text-brand-primary dark:text-teal-300",
   subtext: "text-teal-700 dark:text-teal-400/80",
   badge: "bg-teal-200/90 dark:bg-teal-900 text-teal-900 dark:text-teal-200",
@@ -110,7 +114,7 @@ function LoginContent() {
     if (referralParam && !referralCode) {
       setReferralCode(referralParam);
     }
-  }, [referralParam]);
+  }, [referralParam, referralCode]);
 
   // If already authenticated, redirect
   useEffect(() => {
@@ -188,9 +192,9 @@ function LoginContent() {
     }
   };
 
-  const handleVerifyOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!otp.trim() || otp.trim().length < 5) {
+  const handleVerifyOtp = async (otpToVerify?: string) => {
+    const code = (otpToVerify || otp).trim();
+    if (!code || code.length < 5) {
       setErrorMessage("کد تایید ۵ رقمی را کامل وارد نمایید.");
       return;
     }
@@ -198,7 +202,7 @@ function LoginContent() {
     setErrorMessage(null);
     setIsLoading(true);
 
-    const res = await verifyOtp(phone.trim(), otp.trim(), referralCode.trim() || undefined);
+    const res = await verifyOtp(phone.trim(), code, referralCode.trim() || undefined);
     setIsLoading(false);
 
     if (res.success && res.user) {
@@ -216,7 +220,7 @@ function LoginContent() {
         } else {
           router.push(redirect);
         }
-      }, 1000);
+      }, 900);
     } else {
       setErrorMessage(res.message || "کد تایید نادرست است.");
     }
@@ -255,425 +259,424 @@ function LoginContent() {
         } else {
           router.push(redirect);
         }
-      }, 1000);
+      }, 900);
     } else {
       setErrorMessage(res.message || "رمز عبور وارد شده نامعتبر است.");
     }
   };
 
   return (
-    <div className="group/logincard relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-3xl shadow-2xl border border-brand-border dark:border-slate-800 max-w-md w-full animate-fadeIn transition-all duration-300">
-      {/* Corner Glow Orb */}
-      <div className="absolute -top-14 -right-14 w-36 h-36 bg-teal-500/10 rounded-full blur-2xl group-hover/logincard:scale-150 transition-all duration-500 pointer-events-none" />
+    <Card3D maxTilt={4} glareEffect={true} className="max-w-md w-full rounded-3xl shadow-2xl">
+      <div className="glass-panel rounded-3xl overflow-hidden border border-brand-border/90 dark:border-slate-700/80">
+        {/* Card Header */}
+        <div className="bg-gradient-to-r from-teal-950 via-brand-primary to-brand-primaryDark p-6 sm:p-7 text-white text-center relative z-10">
+          <div className="w-13 h-13 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center mx-auto mb-3 shadow-md">
+            {authMode === "password" ? (
+              <Lock className="w-6 h-6 text-amber-300" />
+            ) : step === "input" ? (
+              <Phone className="w-6 h-6 text-amber-300" />
+            ) : (
+              <KeyRound className="w-6 h-6 text-amber-300" />
+            )}
+          </div>
 
-      {/* Card Header */}
-      <div className="bg-gradient-to-r from-teal-950 via-brand-primary to-brand-primaryDark p-6 text-white text-center relative z-10">
-        <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto mb-3 shadow-xs">
-          {authMode === "password" ? (
-            <Lock className="w-6 h-6 text-brand-accent" />
-          ) : step === "input" ? (
-            <Phone className="w-6 h-6 text-brand-accent" />
-          ) : (
-            <KeyRound className="w-6 h-6 text-brand-accent" />
-          )}
+          <h1 className="text-xl font-black">
+            {authMode === "password"
+              ? "ورود با رمز عبور"
+              : step === "input"
+              ? "ورود و ثبت‌نام با کد یکبار مصرف (OTP)"
+              : "تایید شماره موبایل با کد ۵ رقمی"}
+          </h1>
+          <p className="text-xs text-teal-100/90 mt-1.5 leading-relaxed">
+            {authMode === "password"
+              ? "شماره موبایل و رمز عبور حساب خود را وارد فرمایید"
+              : step === "input"
+              ? "کد تایید ۵ رقمی بلافاصله به شماره همراه شما پیامک خواهد شد"
+              : `کد ۵ رقمی پیامک‌شده به شماره ${phone} را وارد نمایید`}
+          </p>
         </div>
 
-        <h1 className="text-xl font-black">
-          {authMode === "password"
-            ? "ورود با رمز عبور"
-            : step === "input"
-            ? "ورود با کد یکبار مصرف (OTP)"
-            : "تایید شماره موبایل با کد OTP"}
-        </h1>
-        <p className="text-xs text-teal-100/90 mt-1">
-          {authMode === "password"
-            ? "شماره موبایل و رمز عبور حساب خود را وارد فرمایید"
-            : step === "input"
-            ? "کد تایید ۵ رقمی به شماره همراه شما ارسال خواهد شد"
-            : `کد تایید ارسال‌شده به شماره ${phone} را وارد کنید`}
-        </p>
-      </div>
+        {/* Tabs */}
+        <div className="flex border-b border-brand-border/70 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850/60 relative z-10">
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode("phone");
+              setStep("input");
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-3.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+              authMode === "phone"
+                ? "border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-slate-900"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700"
+            }`}
+          >
+            کد یکبار مصرف (OTP)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode("password");
+              setStep("input");
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-3.5 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+              authMode === "password"
+                ? "border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-slate-900"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700"
+            }`}
+          >
+            ورود با رمز عبور
+          </button>
+        </div>
 
-      {/* Tabs: Only 2 official modes */}
-      <div className="flex border-b border-brand-border dark:border-slate-800 bg-neutral-50/70 dark:bg-slate-800/50 relative z-10">
-        <button
-          type="button"
-          onClick={() => {
-            setAuthMode("phone");
-            setStep("input");
-            setErrorMessage(null);
-          }}
-          className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
-            authMode === "phone"
-              ? "border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-slate-900"
-              : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          }`}
-        >
-          ورود با کد یکبار مصرف (OTP)
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setAuthMode("password");
-            setStep("input");
-            setErrorMessage(null);
-          }}
-          className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
-            authMode === "password"
-              ? "border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-slate-900"
-              : "border-transparent text-neutral-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-          }`}
-        >
-          ورود با رمز عبور
-        </button>
-      </div>
+        {/* Card Body */}
+        <div className="p-6 sm:p-7 space-y-5 text-xs text-slate-800 dark:text-slate-100 relative z-10">
+          {errorMessage && (
+            <div className="bg-rose-50/90 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 p-3.5 rounded-2xl flex items-center gap-2.5 animate-shake">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
-      {/* Card Body */}
-      <div className="p-6 space-y-5 text-xs text-slate-800 dark:text-slate-100 relative z-10">
-        {errorMessage && (
-          <div className="bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 p-3 rounded-xl flex items-center gap-2 animate-shake">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
+          {successMessage && (
+            <div className="bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 p-3.5 rounded-2xl flex items-center gap-2.5 animate-bounce">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>{successMessage}</span>
+            </div>
+          )}
 
-        {successMessage && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 p-3 rounded-xl flex items-center gap-2 animate-bounce">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* MODE 1: PHONE OTP */}
-        {authMode === "phone" && (
-          <>
-            {step === "input" ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
-                    شماره موبایل:
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      placeholder="09180000000"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      dir="ltr"
-                      className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-3 pr-4 pl-10 text-sm font-mono outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
-                    />
-                    <Phone className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          {/* MODE 1: PHONE OTP */}
+          {authMode === "phone" && (
+            <>
+              {step === "input" ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
+                      شماره موبایل:
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="tel"
+                        placeholder="09180000000"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        dir="ltr"
+                        className="w-full h-12 bg-slate-50 dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl pr-4 pl-10 text-sm font-mono outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
+                      />
+                      <Phone className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="block font-bold text-brand-dark dark:text-white mb-1.5 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Gift className="w-3.5 h-3.5 text-amber-500" />
-                      <span>کد معرف (اختیاری):</span>
+                  <div>
+                    <label className="block font-bold text-brand-dark dark:text-white mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Gift className="w-3.5 h-3.5 text-amber-500" />
+                        <span>کد معرف (اختیاری):</span>
+                      </span>
+                      <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal">
+                        جهت دریافت پاداش عضویت
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="مثلاً: ARZAN-1234"
+                        value={referralCode}
+                        onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                        dir="ltr"
+                        className="w-full h-11 bg-slate-50 dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl pr-4 pl-10 text-xs font-mono uppercase outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
+                      />
+                      <Gift className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    </div>
+                  </div>
+
+                  {/* Quick Admin/Demo Selection */}
+                  <div className="space-y-2.5 pt-3 border-t border-brand-border/60 dark:border-slate-800">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-amber-500" />
+                      <span>ورود سریع حساب‌های مدیران سامانه:</span>
                     </span>
-                    <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal">
-                      جهت عضویت در شبکه دوستان و دریافت پاداش
-                    </span>
-                  </label>
-                  <div className="relative">
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {ADMIN_ACCOUNTS.map((acc) => (
+                        <button
+                          key={acc.phone}
+                          type="button"
+                          onClick={() => {
+                            setPhone(acc.phone);
+                            handleSendPhoneOtp(acc.phone);
+                          }}
+                          className={`p-2.5 rounded-xl border text-right transition-all duration-200 flex flex-col justify-between gap-1 shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer ${acc.border} ${acc.bg}`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className={`font-bold text-[11px] ${acc.text} line-clamp-1`}>
+                              {acc.name}
+                            </span>
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${acc.badge}`}>
+                              {acc.phone.slice(-4)}
+                            </span>
+                          </div>
+                          <span className={`text-[10px] font-medium ${acc.subtext}`}>
+                            {acc.roleTitle}
+                          </span>
+                          <div className="flex items-center justify-between pt-1 border-t border-black/5 dark:border-white/5">
+                            <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-200 dir-ltr text-left">
+                              {acc.phone}
+                            </span>
+                            <span className="text-[9px] text-slate-500 dark:text-slate-400">
+                              ورود ⚡
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Regular Customer Account */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhone(USER_ACCOUNT.phone);
+                        handleSendPhoneOtp(USER_ACCOUNT.phone);
+                      }}
+                      className={`w-full p-2.5 rounded-xl border text-right transition-all duration-200 flex items-center justify-between gap-2 shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer ${USER_ACCOUNT.border} ${USER_ACCOUNT.bg}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-300 shrink-0">
+                          <User className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className={`font-bold text-[11px] ${USER_ACCOUNT.text}`}>
+                            {USER_ACCOUNT.name} ({USER_ACCOUNT.roleTitle})
+                          </span>
+                          <span className={`text-[10px] ${USER_ACCOUNT.subtext} block`}>
+                            {USER_ACCOUNT.scope}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-left shrink-0">
+                        <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-200 dir-ltr block">
+                          {USER_ACCOUNT.phone}
+                        </span>
+                        <span className="text-[9px] text-slate-500 dark:text-slate-400">
+                          ورود ⚡
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSendPhoneOtp()}
+                    disabled={isLoading}
+                    className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-3.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-teal-500/25 hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:opacity-50 cursor-pointer text-xs sm:text-sm"
+                  >
+                    {isLoading ? (
+                      <span>در حال ارسال پیامک...</span>
+                    ) : (
+                      <>
+                        <span>دریافت کد تایید یکبار مصرف (OTP)</span>
+                        <ArrowLeft className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="text-center space-y-1">
+                    <label className="block font-bold text-brand-dark dark:text-white text-xs sm:text-sm">
+                      کد تایید ۵ رقمی پیامک‌شده:
+                    </label>
+                    <p className="text-[11px] text-slate-400">
+                      کد را در کادرهای زیر تایپ یا Paste کنید:
+                    </p>
+                  </div>
+
+                  {/* 5-Box Modern OTP Input */}
+                  <OtpInput
+                    value={otp}
+                    onChange={(val) => setOtp(val)}
+                    disabled={isLoading}
+                    onComplete={(completeOtp) => handleVerifyOtp(completeOtp)}
+                  />
+
+                  {/* Optional Referral Code (New Users Only) */}
+                  <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-2xl space-y-1.5 text-right">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-bold text-slate-700 dark:text-slate-300">
+                        کد معرف دوست یا اسپانسر:
+                      </label>
+                      <span className="text-[10px] text-teal-700 dark:text-teal-400 font-bold bg-teal-500/20 px-2 py-0.5 rounded-full">
+                        اختیاری
+                      </span>
+                    </div>
                     <input
                       type="text"
                       placeholder="مثلاً: ARZAN-1234"
                       value={referralCode}
                       onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                       dir="ltr"
-                      className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2.5 pr-4 pl-10 text-xs font-mono uppercase outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
+                      maxLength={20}
+                      className="w-full bg-white dark:bg-slate-900 border border-brand-border dark:border-slate-700 focus:border-teal-500 rounded-xl py-2 px-3 text-center font-mono font-bold text-xs uppercase outline-none text-slate-800 dark:text-slate-100 transition-all duration-200"
                     />
-                    <Gift className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   </div>
-                </div>
 
-                {/* Quick Selection */}
-                <div className="space-y-2.5 pt-2 border-t border-neutral-200 dark:border-slate-800">
-                  <span className="text-[11px] font-bold text-neutral-700 dark:text-slate-200 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-amber-500" />
-                    <span>ورود سریع مدیران سامانه:</span>
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {ADMIN_ACCOUNTS.map((acc) => (
+                  {/* Actions & Resend */}
+                  <div className="space-y-2.5 pt-2 border-t border-brand-border/60 dark:border-slate-800">
+                    <div className="flex items-center justify-between text-[11.5px]">
                       <button
-                        key={acc.phone}
                         type="button"
-                        onClick={() => {
-                          setPhone(acc.phone);
-                          handleSendPhoneOtp(acc.phone);
-                        }}
-                        className={`p-2.5 rounded-xl border text-right transition-all duration-200 flex flex-col justify-between gap-1 shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer ${acc.border} ${acc.bg}`}
+                        onClick={() => setStep("input")}
+                        className="text-slate-500 dark:text-slate-400 hover:text-brand-dark dark:hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
                       >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className={`font-bold text-[11px] ${acc.text} line-clamp-1`}>
-                            {acc.name}
-                          </span>
-                          <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${acc.badge}`}>
-                            {acc.phone.slice(-4)}
-                          </span>
-                        </div>
-                        <span className={`text-[10px] font-medium ${acc.subtext}`}>
-                          {acc.roleTitle}
-                        </span>
-                        <div className="flex items-center justify-between pt-1 border-t border-black/5 dark:border-white/5">
-                          <span className="font-mono text-[11px] font-bold text-neutral-700 dark:text-slate-200 dir-ltr text-left">
-                            {acc.phone}
-                          </span>
-                          <span className="text-[9px] text-neutral-500 dark:text-slate-400">
-                            کلیک برای ورود ⚡
-                          </span>
-                        </div>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                        <span>تغییر شماره ({phone})</span>
                       </button>
-                    ))}
+
+                      {countdown > 0 ? (
+                        <span className="text-slate-400 dark:text-slate-500 font-mono">
+                          ارسال مجدد ({countdown} ثانیه)
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSendPhoneOtp()}
+                          className="text-teal-600 dark:text-teal-400 hover:underline font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>ارسال مجدد پیامک</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Fallback Option: Send to Registered Email */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleSendRegisteredEmailOtp}
+                        disabled={isSendingEmailOtp}
+                        className="w-full py-2.5 px-3 rounded-xl border border-sky-300/80 dark:border-sky-800/80 bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-500/15 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
+                      >
+                        <Mail className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+                        <span>
+                          {isSendingEmailOtp
+                            ? "در حال ارسال به ایمیل حساب..."
+                            : "کد را دریافت نکردید؟ ارسال به ایمیل ثبت‌شده در حساب"}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Regular Customer Account */}
                   <button
                     type="button"
-                    onClick={() => {
-                      setPhone(USER_ACCOUNT.phone);
-                      handleSendPhoneOtp(USER_ACCOUNT.phone);
-                    }}
-                    className={`w-full p-2.5 rounded-xl border text-right transition-all duration-200 flex items-center justify-between gap-2 shadow-xs hover:scale-[1.02] active:scale-95 cursor-pointer ${USER_ACCOUNT.border} ${USER_ACCOUNT.bg}`}
+                    onClick={() => handleVerifyOtp()}
+                    disabled={isLoading || otp.length < 5}
+                    className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-3.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-teal-500/25 hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:opacity-50 text-xs sm:text-sm cursor-pointer"
                   >
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-900/60 flex items-center justify-center text-brand-primary dark:text-teal-300 shrink-0">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`font-bold text-[11px] ${USER_ACCOUNT.text}`}>
-                            {USER_ACCOUNT.name} ({USER_ACCOUNT.roleTitle})
-                          </span>
-                        </div>
-                        <span className={`text-[10px] ${USER_ACCOUNT.subtext} block`}>
-                          {USER_ACCOUNT.scope}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-left shrink-0">
-                      <span className="font-mono text-[11px] font-bold text-neutral-700 dark:text-slate-200 dir-ltr block">
-                        {USER_ACCOUNT.phone}
-                      </span>
-                      <span className="text-[9px] text-neutral-500 dark:text-slate-400">
-                        کلیک برای ورود ⚡
-                      </span>
-                    </div>
+                    {isLoading ? (
+                      <span>در حال تایید کد...</span>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>تایید و ورود به حساب کاربری</span>
+                      </>
+                    )}
                   </button>
                 </div>
+              )}
+            </>
+          )}
 
-                <button
-                  type="button"
-                  onClick={() => handleSendPhoneOtp()}
-                  disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-teal-500/20 hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:opacity-50 cursor-pointer"
-                >
-                  {isLoading ? (
-                    <span>در حال ارسال پیامک...</span>
-                  ) : (
-                    <>
-                      <span>دریافت کد تایید یکبار مصرف (OTP)</span>
-                      <ArrowLeft className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <div>
-                  <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
-                    کد تایید ۵ رقمی:
-                  </label>
+          {/* MODE 2: PASSWORD */}
+          {authMode === "password" && (
+            <form onSubmit={handleLoginWithPassword} className="space-y-4">
+              <div>
+                <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
+                  شماره موبایل:
+                </label>
+                <div className="relative">
                   <input
-                    type="text"
-                    maxLength={5}
-                    placeholder="• • • • •"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
+                    type="tel"
+                    placeholder="09180000000"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                     dir="ltr"
-                    autoFocus
-                    className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white dark:focus:bg-slate-900 rounded-xl py-3 px-4 text-center font-mono font-black text-xl tracking-widest outline-none text-slate-800 dark:text-slate-100 transition-all duration-200"
+                    className="w-full h-12 bg-slate-50 dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl pr-4 pl-10 text-sm font-mono outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
                   />
+                  <Phone className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 </div>
+              </div>
 
-                {/* Optional Referral Code (New Users Only) */}
-                <div className="p-3 bg-teal-50/50 dark:bg-slate-800/40 border border-teal-100 dark:border-slate-700/60 rounded-2xl space-y-1.5 text-right">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-bold text-slate-700 dark:text-slate-300">
-                      کد معرف دوست یا معرف:
-                    </label>
-                    <span className="text-[10px] text-teal-700 dark:text-teal-400 font-bold bg-teal-100/70 dark:bg-teal-950/60 px-2 py-0.5 rounded-full">
-                      اختیاری
-                    </span>
-                  </div>
+              <div>
+                <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
+                  رمز عبور حساب:
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    dir="ltr"
+                    className="w-full h-12 bg-slate-50 dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl pr-4 pl-10 text-sm font-mono outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
+                  />
+                  <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-brand-dark dark:text-white mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Gift className="w-3.5 h-3.5 text-amber-500" />
+                    <span>کد معرف (اختیاری):</span>
+                  </span>
+                  <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal">
+                    جهت دریافت پاداش
+                  </span>
+                </label>
+                <div className="relative">
                   <input
                     type="text"
                     placeholder="مثلاً: ARZAN-1234"
                     value={referralCode}
                     onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                     dir="ltr"
-                    maxLength={20}
-                    className="w-full bg-white dark:bg-slate-900 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2 px-3 text-center font-mono font-bold text-xs uppercase outline-none text-slate-800 dark:text-slate-100 transition-all duration-200 placeholder:normal-case placeholder:font-sans placeholder:text-neutral-400"
+                    className="w-full h-11 bg-slate-50 dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:border-teal-500 rounded-2xl pr-4 pl-10 text-xs font-mono uppercase outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
                   />
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
-                    در صورت ثبت‌نام نخست، پاداش عضویت و کش‌بک به حساب معرف شما منظور خواهد شد.
-                  </p>
+                  <Gift className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 </div>
-
-                {/* Actions & Resend */}
-                <div className="space-y-2 pt-1 border-t border-brand-border/70 dark:border-slate-800">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setStep("input")}
-                      className="text-neutral-500 dark:text-slate-400 hover:text-brand-dark dark:hover:text-white flex items-center gap-1 transition-colors"
-                    >
-                      <ArrowRight className="w-3.5 h-3.5" />
-                      <span>تغییر شماره ({phone})</span>
-                    </button>
-
-                    {countdown > 0 ? (
-                      <span className="text-neutral-400 dark:text-slate-500 font-mono">
-                        ارسال مجدد ({countdown} ثانیه)
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleSendPhoneOtp()}
-                        className="text-brand-primary dark:text-teal-400 hover:underline font-bold flex items-center gap-1 transition-colors"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>ارسال مجدد پیامک</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Fallback Option: Send to Registered Email */}
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={handleSendRegisteredEmailOtp}
-                      disabled={isSendingEmailOtp}
-                      className="w-full py-2.5 px-3 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/70 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 hover:scale-[1.01] active:scale-98 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 shadow-xs cursor-pointer"
-                    >
-                      <Mail className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
-                      <span>
-                        {isSendingEmailOtp
-                          ? "در حال ارسال به ایمیل حساب..."
-                          : "کد را دریافت نکردید؟ ارسال به ایمیل ثبت‌شده در حساب"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-teal-500/20 hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:opacity-50 text-sm cursor-pointer"
-                >
-                  {isLoading ? (
-                    <span>در حال بررسی...</span>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>تایید و ورود به حساب کاربری</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            )}
-          </>
-        )}
-
-        {/* MODE 2: PASSWORD */}
-        {authMode === "password" && (
-          <form onSubmit={handleLoginWithPassword} className="space-y-4">
-            <div>
-              <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
-                شماره موبایل:
-              </label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  placeholder="09180000000"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  dir="ltr"
-                  className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-3 pr-4 pl-10 text-sm font-mono outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
-                />
-                <Phone className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               </div>
-            </div>
 
-            <div>
-              <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
-                رمز عبور حساب:
-              </label>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  dir="ltr"
-                  className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-3 pr-4 pl-10 text-sm font-mono outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
-                />
-                <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-bold text-brand-dark dark:text-white mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Gift className="w-3.5 h-3.5 text-amber-500" />
-                  <span>کد معرف (اختیاری):</span>
-                </span>
-                <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal">
-                  جهت عضویت در شبکه دوستان
-                </span>
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="مثلاً: ARZAN-1234"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                  dir="ltr"
-                  className="w-full bg-brand-surfaceDim dark:bg-slate-800 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white dark:focus:bg-slate-900 rounded-xl py-2.5 pr-4 pl-10 text-xs font-mono uppercase outline-none text-left text-slate-800 dark:text-slate-100 transition-all duration-200"
-                />
-                <Gift className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg hover:shadow-teal-500/20 hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:opacity-50 text-sm cursor-pointer"
-            >
-              {isLoading ? (
-                <span>در حال بررسی رمز عبور...</span>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>ورود با رمز عبور</span>
-                </>
-              )}
-            </button>
-          </form>
-        )}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-3.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-teal-500/25 hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:opacity-50 text-xs sm:text-sm cursor-pointer"
+              >
+                {isLoading ? (
+                  <span>در حال بررسی رمز عبور...</span>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>ورود با رمز عبور</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
-    </div>
+    </Card3D>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
+    <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors relative overflow-hidden">
       <Header />
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-8">
+      <AmbientGlow variant="teal" className="-top-20 -right-20" />
+      <AmbientGlow variant="mixed" className="bottom-10 -left-20 opacity-30" />
+
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-8 pb-32 sm:pb-20 relative z-10">
         <Suspense
           fallback={
             <div className="p-8 text-center text-xs font-bold text-slate-400">
@@ -684,6 +687,7 @@ export default function LoginPage() {
           <LoginContent />
         </Suspense>
       </main>
+
       <Footer />
     </div>
   );

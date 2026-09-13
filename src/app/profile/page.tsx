@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Header from "@/components/store/Header";
 import Footer from "@/components/store/Footer";
+import AmbientGlow from "@/components/ui/AmbientGlow";
 import { useAuth, BankCardItem, AddressItem } from "@/context/AuthContext";
 import { useStore } from "@/context/StoreContext";
 import {
@@ -132,7 +133,7 @@ export default function ProfilePage() {
   const [isLoadingReferrals, setIsLoadingReferrals] = useState(false);
   const [referralSearch, setReferralSearch] = useState("");
 
-  const fetchReferralNetwork = async () => {
+  const fetchReferralNetwork = useCallback(async () => {
     if (!user?.id) return;
     setIsLoadingReferrals(true);
     try {
@@ -145,13 +146,13 @@ export default function ProfilePage() {
     } finally {
       setIsLoadingReferrals(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     if (activeTab === "referrals" && user?.id) {
       fetchReferralNetwork();
     }
-  }, [activeTab, user?.id]);
+  }, [activeTab, user?.id, fetchReferralNetwork]);
 
   // Add Bank Card Modal State
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
@@ -416,7 +417,7 @@ export default function ProfilePage() {
   };
 
   // Fetch user withdrawals
-  const fetchWithdrawals = async () => {
+  const fetchWithdrawals = useCallback(async () => {
     if (!user?.id) return;
     setIsLoadingWithdrawals(true);
     try {
@@ -429,13 +430,13 @@ export default function ProfilePage() {
     } finally {
       setIsLoadingWithdrawals(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id) {
       fetchWithdrawals();
     }
-  }, [user?.id]);
+  }, [user?.id, fetchWithdrawals]);
 
   const hasPendingWithdrawal = withdrawals.some((w) => w.status === "PENDING");
   const pendingWithdrawal = withdrawals.find((w) => w.status === "PENDING");
@@ -608,10 +609,12 @@ export default function ProfilePage() {
   const customerId = `CID-${user.id.slice(-5).toUpperCase()}`;
 
   return (
-    <div className="min-h-screen bg-[#faf8ff] dark:bg-[#0b131e] text-[#131b2e] dark:text-slate-100 flex flex-col justify-between font-sans">
+    <div className="min-h-screen bg-[#faf8ff] dark:bg-[#0b131e] text-[#131b2e] dark:text-slate-100 flex flex-col justify-between font-sans relative overflow-hidden">
       <Header />
+      <AmbientGlow variant="teal" className="-top-20 -right-20" />
+      <AmbientGlow variant="amber" className="top-1/3 -left-32 opacity-20" />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-32 sm:pb-20 space-y-8 relative z-10">
         {/* Toast Alert */}
         {toastMessage && (
           <div

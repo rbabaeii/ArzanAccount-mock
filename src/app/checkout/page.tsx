@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/store/Header";
 import Footer from "@/components/store/Footer";
@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Lock,
   ArrowRight,
+  ArrowLeft,
   AlertTriangle,
   Key,
   Link as LinkIcon,
@@ -28,9 +29,12 @@ import {
   Copy,
   Layers,
   Clock,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { formatPrice, formatNumber } from "@/lib/format";
+import AmbientGlow from "@/components/ui/AmbientGlow";
+import Card3D from "@/components/ui/Card3D";
 
 interface AccountSlot {
   key: string;
@@ -76,15 +80,14 @@ export default function CheckoutPage() {
   // Sync with user profile once loaded
   useEffect(() => {
     if (user) {
-      if (!name && user.name) setName(user.name);
-      if (!email && user.email) setEmail(user.email);
-      if (!phone && user.phone) setPhone(user.phone);
-      if (!nationalCode && user.nationalCode) setNationalCode(user.nationalCode);
+      setName((prev) => prev || user.name || "");
+      setEmail((prev) => prev || user.email || "");
+      setPhone((prev) => prev || user.phone || "");
+      setNationalCode((prev) => prev || user.nationalCode || "");
     }
   }, [user]);
 
-  // Priority 2: Multi-Quantity Account Credentials
-  // Generate a distinct slot for each unit (1..N) of any product requiring email or password
+  // Multi-Quantity Account Credentials
   const requiredAccountSlots: AccountSlot[] = useMemo(() => {
     const slots: AccountSlot[] = [];
     let gIdx = 1;
@@ -154,7 +157,7 @@ export default function CheckoutPage() {
     }
   };
 
-  // Priority 3: Hybrid Delivery Detection
+  // Hybrid Delivery Detection
   const activationItems = useMemo(
     () => cart.filter((item) => item.product.requiresEmail || (item.product as any).requiresPassword),
     [cart]
@@ -292,7 +295,7 @@ export default function CheckoutPage() {
     let backendOrderNumber: string | undefined;
     let backendRes: any;
 
-    // Backend registration (creates DB order & dispatches hybrid or standard receipt email in background)
+    // Backend registration
     try {
       backendRes = await api.createBackendOrder({
         customerEmail: email,
@@ -354,24 +357,25 @@ export default function CheckoutPage() {
 
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
+      <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors relative overflow-hidden">
         <Header />
-        <div className="flex-1 max-w-md mx-auto px-4 py-20 text-center flex flex-col items-center justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-brand-primary dark:text-teal-400 flex items-center justify-center mb-4 shadow-sm animate-pulse">
-            <Lock className="w-8 h-8" />
+        <AmbientGlow variant="teal" className="top-1/4 -right-20" />
+        <div className="flex-1 max-w-md mx-auto px-4 py-24 text-center flex flex-col items-center justify-center relative z-10">
+          <div className="w-18 h-18 rounded-3xl bg-teal-500/15 text-brand-primary dark:text-teal-400 flex items-center justify-center mb-5 shadow-lg shadow-teal-500/10">
+            <Lock className="w-9 h-9" />
           </div>
-          <h2 className="text-xl font-black text-brand-dark dark:text-white mb-2">
+          <h2 className="text-xl sm:text-2xl font-black text-brand-dark dark:text-white mb-2">
             ورود به حساب جهت تکمیل سفارش
           </h2>
-          <p className="text-xs text-brand-muted dark:text-slate-400 mb-6 leading-relaxed">
+          <p className="text-xs text-brand-muted dark:text-slate-400 mb-8 leading-relaxed">
             جهت صدور فاکتور رسمی و تحویل آنی لایسنس، لطفاً ابتدا وارد حساب کاربری خود شوید. سبد خرید شما در حافظه ذخیره و حفظ شده است.
           </p>
           <Link
             href="/login?redirect=/checkout"
-            className="w-full bg-brand-primary hover:bg-brand-primaryDark text-white py-3.5 px-6 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-4 px-6 rounded-2xl font-bold text-xs sm:text-sm shadow-xl shadow-teal-500/25 transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
           >
             <span>ورود سریع با شماره همراه</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4" />
           </Link>
         </div>
         <Footer />
@@ -381,19 +385,23 @@ export default function CheckoutPage() {
 
   if (cart.length === 0) {
     return (
-      <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
+      <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors relative overflow-hidden">
         <Header />
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <AmbientGlow variant="mixed" className="top-1/3 left-1/4" />
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center relative z-10">
+          <div className="w-18 h-18 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4 text-slate-400 shadow-inner">
+            <ShieldCheck className="w-9 h-9" />
+          </div>
           <h2 className="text-xl font-bold text-brand-dark dark:text-white">سبد خرید شما خالی است</h2>
           <p className="text-xs text-brand-muted dark:text-slate-400 mt-2">
             جهت تکمیل سفارش، ابتدا محصول مورد نظر خود را انتخاب کنید.
           </p>
           <Link
             href="/products"
-            className="mt-6 inline-flex items-center gap-2 bg-brand-primary text-white px-5 py-2.5 rounded-xl text-xs font-semibold hover:opacity-90 transition-opacity"
+            className="mt-6 inline-flex items-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-6 py-3 rounded-xl text-xs font-bold shadow-lg shadow-teal-500/20 hover:scale-105 transition-all"
           >
-            <ArrowRight className="w-4 h-4" />
             <span>مشاهده و خرید محصولات</span>
+            <ArrowLeft className="w-4 h-4" />
           </Link>
         </div>
         <Footer />
@@ -402,75 +410,123 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
+    <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors relative overflow-hidden">
       <Header />
 
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs text-brand-muted dark:text-slate-400 mb-6">
-          <Link href="/" className="hover:text-brand-dark dark:hover:text-white">
-            خانه
+      {/* Ambient Lighting Gradients */}
+      <AmbientGlow variant="teal" className="-top-20 -right-20" />
+      <AmbientGlow variant="purple" className="top-1/2 -left-28 opacity-25" />
+
+      {/* Breadcrumb Bar */}
+      <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border-b border-brand-border/70 dark:border-slate-800/80 py-3.5 px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto flex items-center gap-2 text-xs text-brand-muted dark:text-slate-400">
+          <Link href="/" className="hover:text-brand-primary dark:hover:text-teal-400 transition-colors">
+            صفحه اصلی
           </Link>
-          <span>/</span>
-          <Link href="/cart" className="hover:text-brand-dark dark:hover:text-white">
+          <span className="text-slate-300 dark:text-slate-600">/</span>
+          <Link href="/cart" className="hover:text-brand-primary dark:hover:text-teal-400 transition-colors">
             سبد خرید
           </Link>
-          <span>/</span>
+          <span className="text-slate-300 dark:text-slate-600">/</span>
           <span className="text-brand-dark dark:text-white font-bold">تسویه حساب و پرداخت</span>
         </div>
+      </div>
 
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 pb-32 sm:pb-20 relative z-10">
+        {/* Stepper Progress Indicator */}
+        <div className="max-w-3xl mx-auto mb-10">
+          <div className="flex items-center justify-between text-xs font-bold">
+            {/* Step 1: Cart */}
+            <div className="flex flex-col items-center gap-1.5 text-teal-600 dark:text-teal-400">
+              <div className="w-9 h-9 rounded-2xl bg-teal-500/20 border-2 border-teal-500 flex items-center justify-center text-teal-700 dark:text-teal-300 shadow-sm">
+                <Check className="w-4 h-4 stroke-[3]" />
+              </div>
+              <span className="text-[11px] sm:text-xs">۱. سبد خرید</span>
+            </div>
+
+            <div className="flex-1 h-0.5 bg-teal-500/60 mx-2 sm:mx-3 -mt-5" />
+
+            {/* Step 2: Information (Active) */}
+            <div className="flex flex-col items-center gap-1.5 text-amber-600 dark:text-amber-400">
+              <div className="w-9 h-9 rounded-2xl bg-amber-500/20 border-2 border-amber-500 flex items-center justify-center text-amber-600 dark:text-amber-300 shadow-md ring-4 ring-amber-500/10 animate-pulse">
+                <User className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] sm:text-xs font-black">۲. مشخصات سفارش</span>
+            </div>
+
+            <div className="flex-1 h-0.5 bg-slate-200 dark:bg-slate-800 mx-2 sm:mx-3 -mt-5" />
+
+            {/* Step 3: Payment */}
+            <div className="flex flex-col items-center gap-1.5 text-slate-400 dark:text-slate-600">
+              <div className="w-9 h-9 rounded-2xl bg-slate-100 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 flex items-center justify-center text-slate-400">
+                <CreditCard className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] sm:text-xs">۳. پرداخت کارت‌به‌کارت</span>
+            </div>
+
+            <div className="flex-1 h-0.5 bg-slate-200 dark:bg-slate-800 mx-2 sm:mx-3 -mt-5" />
+
+            {/* Step 4: Delivery */}
+            <div className="flex flex-col items-center gap-1.5 text-slate-400 dark:text-slate-600">
+              <div className="w-9 h-9 rounded-2xl bg-slate-100 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 flex items-center justify-center text-slate-400">
+                <Zap className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] sm:text-xs">۴. تحویل لایسنس</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Stock or Submission Error Alert */}
         {stockError && (
-          <div className="mb-6 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 flex items-start gap-3 animate-shake">
+          <div className="mb-8 p-5 rounded-3xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 flex items-start gap-3.5 shadow-sm animate-shake">
             <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
             <div>
-              <strong className="block text-xs font-bold mb-1">خطا در فرآیند ثبت سفارش</strong>
-              <p className="text-xs">{stockError}</p>
+              <strong className="block text-xs sm:text-sm font-bold mb-1">خطا در فرآیند استعلام موجودی یا ثبت سفارش</strong>
+              <p className="text-xs leading-relaxed">{stockError}</p>
             </div>
           </div>
         )}
 
-        {/* Priority 3: Hybrid Order Informative Banner */}
+        {/* Hybrid Order Informative Banner */}
         {isHybridOrder && (
-          <div className="mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 flex items-start gap-3 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+          <div className="mb-8 p-5 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 flex items-start gap-3.5 shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
               <Layers className="w-5 h-5" />
             </div>
             <div className="text-xs space-y-1">
-              <strong className="block font-bold text-amber-950 dark:text-amber-100">
-                توجه: این سفارش شامل خرید ترکیبی (تحویل آنی + فعال‌سازی اختصاصی) می‌باشد
+              <strong className="block font-bold text-amber-950 dark:text-amber-100 text-sm">
+                سفارش ترکیبی (شامل اقلام تحویل فوری + اقلام نیازمند فعال‌سازی اختصاصی)
               </strong>
-              <p className="text-[11.5px] leading-relaxed text-amber-800 dark:text-amber-300">
-                اقلام تحویل فوری ({instantItems.length} عنوان) بلافاصله پس از پرداخت در رسید دیجیتال و ایمیل به شما تحویل داده خواهند شد. 
-                اقلام اختصاصی ({activationItems.length} عنوان) جهت تنظیم و فعال‌سازی توسط کارشناسان در صف بررسی قرار گرفته و وضعیت آن پس از انجام از طریق ایمیل اطلاع‌رسانی می‌شود.
+              <p className="text-[11.5px] leading-relaxed text-amber-800/90 dark:text-amber-300">
+                اقلام تحویل فوری ({instantItems.length} عنوان) بلافاصله پس از تایید واریز صادر خواهند شد. اقلام نیازمند فعال‌سازی ({activationItems.length} عنوان) جهت تنظیم فنی توسط کارشناسان در صف قرار گرفته و وضعیت نهایی از طریق پیامک و ایمیل اطلاع‌رسانی می‌شود.
               </p>
             </div>
           </div>
         )}
 
         <form onSubmit={handleCompleteOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Main Form (7 cols) */}
+          {/* Main Form Fields (7 cols) */}
           <div className="lg:col-span-7 space-y-6">
             {/* Step 1: Customer Contact Info */}
-            <div className="group/buyer relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-brand-border dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/40 dark:hover:border-teal-400/30 transition-all duration-300 space-y-5">
-              {/* Corner Glow Orb */}
-              <div className="absolute -top-12 -right-12 w-28 h-28 bg-teal-500/10 rounded-full blur-2xl group-hover/buyer:scale-150 transition-all duration-500 pointer-events-none" />
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-3 border-b border-brand-border dark:border-slate-800">
-                <h2 className="text-sm font-bold text-brand-dark dark:text-white flex items-center gap-2">
-                  <User className="w-4 h-4 text-brand-primary dark:text-teal-400" />
-                  <span>مشخصات خریدار</span>
+            <div className="glass-panel rounded-3xl p-6 sm:p-7 shadow-card space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-brand-border/60 dark:border-slate-800">
+                <h2 className="text-sm sm:text-base font-bold text-brand-dark dark:text-white flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <span>اطلاعات و مشخصات خریدار</span>
                 </h2>
                 {isAuthenticated && (
-                  <span className="text-[11px] text-teal-600 dark:text-teal-400 flex items-center gap-1 font-semibold">
+                  <span className="text-[11px] text-teal-600 dark:text-teal-400 flex items-center gap-1 font-semibold bg-teal-500/10 px-2.5 py-1 rounded-full border border-teal-500/20">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>بارگذاری شده از پروفایل کاربری</span>
+                    <span>همگام با حساب کاربری شما</span>
                   </span>
                 )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
-                  <label className="block font-semibold text-brand-dark dark:text-white mb-1.5">
+                  <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
                     نام و نام خانوادگی: <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -479,12 +535,12 @@ export default function CheckoutPage() {
                     placeholder="مثلاً: علی محمدی"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-brand-surfaceDim dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2.5 px-3 outline-none transition-all duration-200"
+                    className="w-full h-12 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl px-4 outline-none transition-all duration-200"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-brand-dark dark:text-white mb-1.5">
+                  <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
                     شماره موبایل: <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
@@ -494,17 +550,17 @@ export default function CheckoutPage() {
                       placeholder="09123456789"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full bg-brand-surfaceDim dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2.5 pr-9 pl-3 outline-none dir-ltr text-left font-mono transition-all duration-200"
+                      className="w-full h-12 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl pr-10 pl-4 outline-none dir-ltr text-left font-mono transition-all duration-200"
                     />
-                    <Phone className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    <Phone className="w-4 h-4 text-neutral-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
-                  <label className="block font-semibold text-brand-dark dark:text-white mb-1.5">
-                    ایمیل خریدار (ارسال فاکتور و وضعیت): <span className="text-rose-500">*</span>
+                  <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
+                    ایمیل خریدار (ارسال فاکتور و لایسنس): <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -513,48 +569,50 @@ export default function CheckoutPage() {
                       placeholder="name@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-brand-surfaceDim dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2.5 pr-9 pl-3 outline-none dir-ltr text-left font-mono transition-all duration-200"
+                      className="w-full h-12 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl pr-10 pl-4 outline-none dir-ltr text-left font-mono transition-all duration-200"
                     />
-                    <Mail className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-4 h-4 text-neutral-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-brand-dark dark:text-white mb-1.5">
-                    کد ملی (اختیاری):
+                  <label className="block font-bold text-brand-dark dark:text-white mb-1.5">
+                    کد ملی (اختیاری جهت فاکتور رسمی):
                   </label>
                   <input
                     type="text"
                     placeholder="۱۰ رقم کد ملی"
                     value={nationalCode}
                     onChange={(e) => setNationalCode(e.target.value)}
-                    className="w-full bg-brand-surfaceDim dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-xl py-2.5 px-3 outline-none dir-ltr text-left font-mono transition-all duration-200"
+                    className="w-full h-12 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 rounded-2xl px-4 outline-none dir-ltr text-left font-mono transition-all duration-200"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Step 2: Multi-Quantity Account Credentials & Requirements */}
+            {/* Step 2: Multi-Quantity Account Credentials & Dynamic Requirements */}
             {hasRequirements ? (
-              <div className="bg-white dark:bg-slate-900 border border-brand-border dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-card space-y-5 animate-fadeIn">
-                <div className="pb-3 border-b border-brand-border dark:border-slate-800">
+              <div className="glass-panel rounded-3xl p-6 sm:p-7 shadow-card space-y-5">
+                <div className="pb-3 border-b border-brand-border/60 dark:border-slate-800">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-brand-dark dark:text-white flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-brand-primary dark:text-teal-400" />
-                      <span>اطلاعات مورد نیاز جهت راه‌اندازی اشتراک</span>
+                    <h2 className="text-sm sm:text-base font-bold text-brand-dark dark:text-white flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <span>مشخصات اختصاصی فعال‌سازی اشتراک</span>
                     </h2>
                     {requiredAccountSlots.length > 1 && (
-                      <span className="text-[11px] font-bold px-2.5 py-1 bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 rounded-lg">
+                      <span className="text-[11px] font-bold px-3 py-1 bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 rounded-xl">
                         {requiredAccountSlots.length} اکانت مجزا
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    با توجه به تعداد سفارش ({requiredAccountSlots.length} عدد)، لطفاً مشخصات هر اکانت را به تفکیک در کادرهای زیر وارد نمایید:
+                  <p className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1.5">
+                    جهت راه‌اندازی اشتراک روی حساب کاربری شما، لطفاً مشخصات هر اکانت را به تفکیک تکمیل نمایید:
                   </p>
                 </div>
 
-                {/* Priority 2: Account Units Grid (N units -> N credential pairs) */}
+                {/* Account Units Grid */}
                 {requiredAccountSlots.length > 0 && (
                   <div className="space-y-4">
                     {requiredAccountSlots.map((slot, idx) => {
@@ -564,40 +622,40 @@ export default function CheckoutPage() {
                       return (
                         <div
                           key={slot.key}
-                          className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3 transition-colors"
+                          className="p-4 sm:p-5 rounded-2xl bg-slate-50/90 dark:bg-slate-850 border border-brand-border/80 dark:border-slate-750 space-y-3.5"
                         >
-                          <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-700/80">
+                          <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80 dark:border-slate-700/80">
                             <div className="flex items-center gap-2">
-                              <span className="w-6 h-6 rounded-lg bg-teal-600 text-white text-xs font-black flex items-center justify-center font-mono">
+                              <span className="w-7 h-7 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white text-xs font-black flex items-center justify-center font-mono shadow-xs">
                                 {slot.globalIndex}
                               </span>
-                              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                                 {slot.productTitle}
                                 {slot.totalForProduct > 1 && (
-                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mr-1.5">
+                                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mr-2">
                                     (اکانت {slot.unitIndex} از {slot.totalForProduct})
                                   </span>
                                 )}
                               </span>
                             </div>
 
-                            {/* Quick copy button for subsequent accounts */}
+                            {/* Quick copy button */}
                             {idx > 0 && firstSlotKey && (
                               <button
                                 type="button"
                                 onClick={() => copyFromFirstSlot(slot.key, firstSlotKey)}
-                                className="text-[11px] text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 flex items-center gap-1 font-medium transition-colors"
+                                className="text-[11px] text-teal-600 dark:text-teal-400 hover:text-teal-700 flex items-center gap-1 font-semibold px-2.5 py-1 rounded-lg hover:bg-teal-500/10 transition-colors"
                               >
                                 <Copy className="w-3.5 h-3.5" />
-                                <span>کپی از اکانت ۱</span>
+                                <span>کپی مشخصات از اکانت ۱</span>
                               </button>
                             )}
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
                             {slot.requiresEmail && (
                               <div>
-                                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                                <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1.5">
                                   ایمیل اکانت {slot.globalIndex}: <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="relative">
@@ -607,28 +665,28 @@ export default function CheckoutPage() {
                                     placeholder="user@example.com"
                                     value={cred.email}
                                     onChange={(e) => updateAccountSlot(slot.key, "email", e.target.value)}
-                                    className="w-full bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:border-brand-primary dark:focus:border-teal-400 rounded-xl py-2 px-3 outline-none dir-ltr text-left font-mono"
+                                    className="w-full h-11 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:border-teal-500 rounded-xl px-3.5 pr-9 outline-none dir-ltr text-left font-mono"
                                   />
-                                  <Mail className="w-3.5 h-3.5 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                                  <Mail className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
                                 </div>
                               </div>
                             )}
 
                             {slot.requiresPassword && (
                               <div>
-                                <label className="block font-semibold text-slate-700 dark:text-slate-200 mb-1">
+                                <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1.5">
                                   رمز عبور اکانت {slot.globalIndex}: <span className="text-rose-500">*</span>
                                 </label>
                                 <div className="relative">
                                   <input
                                     type="password"
                                     required
-                                    placeholder="کلمه عبور اکانت"
+                                    placeholder="کلمه عبور اختصاصی"
                                     value={cred.password}
                                     onChange={(e) => updateAccountSlot(slot.key, "password", e.target.value)}
-                                    className="w-full bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-700 focus:border-brand-primary dark:focus:border-teal-400 rounded-xl py-2 px-3 outline-none dir-ltr text-left font-mono"
+                                    className="w-full h-11 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:border-teal-500 rounded-xl px-3.5 pr-9 outline-none dir-ltr text-left font-mono"
                                   />
-                                  <Key className="w-3.5 h-3.5 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                                  <Key className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
                                 </div>
                               </div>
                             )}
@@ -644,7 +702,7 @@ export default function CheckoutPage() {
                   {needsLink && (
                     <div className="text-xs">
                       <label className="block font-bold text-slate-900 dark:text-white mb-1.5">
-                        لینک مقصد (آدرس کانال / گروه / پیج / پروفایل): <span className="text-rose-500">*</span>
+                        لینک مقصد (کانال / گروه / پیج / پروفایل): <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -653,9 +711,9 @@ export default function CheckoutPage() {
                           placeholder="https://t.me/... یا https://instagram.com/..."
                           value={targetAccountLink}
                           onChange={(e) => setTargetAccountLink(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:border-brand-primary dark:focus:border-teal-400 rounded-xl py-2.5 pr-9 pl-3 outline-none dir-ltr text-left font-mono"
+                          className="w-full h-12 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:border-teal-500 rounded-2xl pr-10 pl-4 outline-none dir-ltr text-left font-mono"
                         />
-                        <LinkIcon className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                        <LinkIcon className="w-4 h-4 text-neutral-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                       </div>
                     </div>
                   )}
@@ -663,71 +721,73 @@ export default function CheckoutPage() {
                   {needsComments && (
                     <div className="text-xs">
                       <label className="block font-bold text-slate-900 dark:text-white mb-1.5">
-                        توضیحات و درخواست سفارشی:
+                        توضیحات و نیازمندی‌های سفارشی:
                       </label>
                       <textarea
                         rows={2}
-                        placeholder="توضیحات تکمیلی یا متن سفارشی خود را اینجا بنویسید..."
+                        placeholder="در صورت داشتن یادداشت یا متن سفارشی اینجا وارد فرمایید..."
                         value={targetAccountComments}
                         onChange={(e) => setTargetAccountComments(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 focus:border-brand-primary dark:focus:border-teal-400 rounded-xl py-2.5 px-3 outline-none resize-none text-xs"
+                        className="w-full bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-brand-border dark:border-slate-700 focus:border-teal-500 rounded-2xl p-3.5 outline-none resize-none text-xs leading-relaxed"
                       />
                     </div>
                   )}
 
-                  <div className="p-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 text-xs text-teal-900 dark:text-teal-200 flex items-start gap-2.5">
+                  <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-xs text-teal-900 dark:text-teal-200 flex items-start gap-3">
                     <Info className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5" />
                     <p className="text-[11px] leading-relaxed">
-                      کلیه مشخصات ثبت‌شده به صورت رمزنگاری شده نگهداری شده و پس از تکمیل فعال‌سازی توسط کارشناسان فنی، وضعیت نهایی از طریق ایمیل برای شما مخابره خواهد شد.
+                      کلیه مشخصات ثبت‌شده به صورت رمزنگاری شده در سرور محافظت می‌شوند و پس از تکمیل فعال‌سازی، رسید رسمی به ایمیل شما ارسال خواهد شد.
                     </p>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="bg-white dark:bg-slate-900 border border-brand-border dark:border-slate-800 rounded-2xl p-5 shadow-card flex items-center gap-3 text-xs text-emerald-800 dark:text-emerald-300">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center shrink-0">
+              <div className="glass-panel rounded-3xl p-5 shadow-card flex items-center gap-3.5 text-xs text-emerald-800 dark:text-emerald-300">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <strong className="block font-bold">تحویل آنی و خودکار پس از پرداخت</strong>
+                  <strong className="block font-bold text-sm">تحویل فوری و خودکار پس از پرداخت</strong>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    محصولات این سفارش نیازی به ثبت مشخصات اختصاصی اکانت ندارند و بلافاصله پس از پرداخت صادر خواهند شد.
+                    محصولات این سفارش نیازی به ثبت ایمیل یا پسورد اختصاصی ندارند و بلافاصله پس از پرداخت صادر خواهند شد.
                   </span>
                 </div>
               </div>
             )}
 
-            {/* Step 3: Payment Gateway Selector (Exclusive Card-to-Card) */}
-            <div className="group/gateway relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-brand-border dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/40 dark:hover:border-teal-400/30 transition-all duration-300 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-brand-border dark:border-slate-800">
-                <h2 className="text-sm font-bold text-brand-dark dark:text-white flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-brand-primary dark:text-teal-400" />
+            {/* Step 3: Payment Gateway Selector (Exclusive CartBeCart) */}
+            <div className="glass-panel rounded-3xl p-6 sm:p-7 shadow-card space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-brand-border/60 dark:border-slate-800">
+                <h2 className="text-sm sm:text-base font-bold text-brand-dark dark:text-white flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                    <CreditCard className="w-4 h-4" />
+                  </div>
                   <span>روش پرداخت سفارش</span>
                 </h2>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  <span>روش انحصاری و تایید آنی</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>تایید خودکار و آنی</span>
                 </span>
               </div>
 
               {/* Exclusive CartBeCart Card */}
-              <div className="p-5 rounded-2xl border border-teal-500/40 bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-teal-950/10 dark:from-teal-950/50 dark:via-emerald-950/20 dark:to-slate-900 shadow-sm ring-1 ring-teal-500/20 space-y-3">
+              <div className="p-5 rounded-2xl border-2 border-teal-500/50 bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-teal-950/20 dark:from-teal-950/60 dark:via-emerald-950/30 dark:to-slate-900 shadow-md space-y-3.5">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-teal-500/20 shrink-0">
-                      <CreditCard className="w-5 h-5" />
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-teal-500/25 shrink-0">
+                      <CreditCard className="w-6 h-6" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-black text-brand-dark dark:text-white text-sm sm:text-base">
                           کارت‌به‌کارت هوشمند شتابی (سامانه CartBeCart)
                         </span>
-                        <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
-                          فعال و خودکار
+                        <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                          فعال و اتوماتیک
                         </span>
                       </div>
-                      <span className="text-xs text-teal-700 dark:text-teal-300 font-medium block mt-0.5">
-                        واریز مستقیم و آنی از کلیه اپلیکیشن‌ها و بانک‌های کشور بدون نیاز به رمز پویا
+                      <span className="text-xs text-teal-700 dark:text-teal-300 font-medium block mt-1">
+                        واریز مستقیم و آنی از کلیه اپلیکیشن‌ها (بلو، آپ، همراه بانک‌ها) بدون نیاز به رمز پویا
                       </span>
                     </div>
                   </div>
@@ -736,24 +796,24 @@ export default function CheckoutPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-[11px] text-slate-600 dark:text-slate-300 border-t border-teal-500/15">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 text-[11px] text-slate-600 dark:text-slate-300 border-t border-teal-500/20">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <span>تطبیق و تایید آنی پیامک بانک</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>بلو، آپ، توبانک، همراه بانک‌ها</span>
+                    <span>پشتیبانی از کلیه کارت‌های بانکی</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>پیوست دستی فیش در صورت نیاز</span>
+                    <span>امکان پیوست تصویر رسید در صورت نیاز</span>
                   </div>
                 </div>
               </div>
 
               <div className="pt-2">
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <label className="flex items-center gap-2.5 text-xs cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={agreed}
@@ -761,117 +821,112 @@ export default function CheckoutPage() {
                     className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
                   />
                   <span className="text-brand-muted dark:text-slate-400">
-                    قوانین و شرایط خرید، حفظ محرمانگی و ضمانت سلامت اکانت را مطالعه کرده و می‌پذیرم.
+                    قوانین و شرایط خرید، حفظ محرمانگی و ضمانت سلامت اکانت ارزان اکانت را مطالعه کرده و می‌پذیرم.
                   </span>
                 </label>
               </div>
             </div>
           </div>
 
-          {/* Invoice Sidebar (5 cols) */}
-          <div className="lg:col-span-5 group/invoice relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-brand-border dark:border-slate-800 rounded-2xl p-6 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/40 dark:hover:border-teal-400/30 transition-all duration-300 space-y-5 sticky top-28">
-            {/* Corner Glow Orb */}
-            <div className="absolute -top-12 -right-12 w-28 h-28 bg-teal-500/10 rounded-full blur-2xl group-hover/invoice:scale-150 transition-all duration-500 pointer-events-none" />
+          {/* Invoice Summary Sidebar (5 cols) */}
+          <div className="lg:col-span-5 space-y-5 sticky top-28">
+            <Card3D maxTilt={3} glareEffect={true} className="rounded-3xl shadow-xl">
+              <div className="glass-panel rounded-3xl p-6 sm:p-7 border border-brand-border/90 dark:border-slate-700/80 space-y-5">
+                <h3 className="font-bold text-sm text-brand-dark dark:text-white pb-3 border-b border-brand-border/60 dark:border-slate-800 flex items-center justify-between">
+                  <span>اقلام سفارش ({cart.length})</span>
+                  <span className="text-[11px] font-mono text-slate-400">CHECKOUT</span>
+                </h3>
 
-            <h3 className="font-bold text-sm text-brand-dark dark:text-white pb-3 border-b border-brand-border dark:border-slate-800">
-              اقلام سفارش ({cart.length})
-            </h3>
+                <div className="divide-y divide-brand-border/60 dark:divide-slate-800 max-h-64 overflow-y-auto pr-1">
+                  {cart.map((item) => {
+                    const p = calculateProductPrice(item.product);
+                    const itemTotal = p.isPerThousand
+                      ? Math.round((p.toman * item.quantity) / 1000)
+                      : p.toman * item.quantity;
 
-            <div className="divide-y divide-brand-border dark:divide-slate-800 max-h-60 overflow-y-auto pr-1">
-              {cart.map((item) => {
-                const p = calculateProductPrice(item.product);
-                const itemTotal = p.isPerThousand
-                  ? Math.round((p.toman * item.quantity) / 1000)
-                  : p.toman * item.quantity;
+                    const isActivation = item.product.requiresEmail || (item.product as any).requiresPassword;
 
-                const isActivation = item.product.requiresEmail || (item.product as any).requiresPassword;
-
-                return (
-                  <div key={item.product.id} className="py-2.5 flex justify-between items-center text-xs hover:bg-teal-50/20 dark:hover:bg-slate-800/30 px-2 rounded-lg transition-colors">
-                    <div>
-                      <span className="font-bold text-brand-dark dark:text-white block line-clamp-1">
-                        {item.product.customTitle}
-                      </span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-brand-muted dark:text-slate-400">
-                          تعداد: {item.quantity} عدد
+                    return (
+                      <div key={item.product.id} className="py-3 flex justify-between items-center text-xs hover:bg-teal-500/5 px-2 rounded-xl transition-colors">
+                        <div>
+                          <span className="font-bold text-brand-dark dark:text-white block line-clamp-1">
+                            {item.product.customTitle}
+                          </span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10.5px] text-brand-muted dark:text-slate-400">
+                              تعداد: {item.quantity} عدد
+                            </span>
+                            {isActivation ? (
+                              <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/30">
+                                فعال‌سازی فنی
+                              </span>
+                            ) : (
+                              <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-500/30">
+                                تحویل آنی
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="font-bold text-brand-dark dark:text-white font-mono shrink-0 text-sm">
+                          {formatPrice(itemTotal)} ت
                         </span>
-                        {isActivation ? (
-                          <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-800">
-                            فعال‌سازی فنی
-                          </span>
-                        ) : (
-                          <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800">
-                            تحویل آنی
-                          </span>
-                        )}
                       </div>
-                    </div>
-                    <span className="font-bold text-brand-dark dark:text-white font-mono shrink-0">
-                      {formatPrice(itemTotal)} ت
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 border-t border-brand-border/60 dark:border-slate-800 space-y-2.5 text-xs">
+                  <div className="flex justify-between text-brand-muted dark:text-slate-400">
+                    <span>مجموع سبد:</span>
+                    <span className="font-mono font-bold text-brand-dark dark:text-white">
+                      {formatPrice(subtotalToman)} تومان
                     </span>
                   </div>
-                );
-              })}
-            </div>
 
-            <div className="pt-3 border-t border-brand-border dark:border-slate-800 space-y-2 text-xs">
-              <div className="flex justify-between text-brand-muted dark:text-slate-400">
-                <span>مجموع سبد:</span>
-                <span className="font-mono font-bold">
-                  {formatPrice(subtotalToman)} تومان
-                </span>
-              </div>
+                  {discountToman > 0 && (
+                    <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/20">
+                      <span>تخفیف ویژه:</span>
+                      <span className="font-mono font-bold">
+                        - {formatPrice(discountToman)} تومان
+                      </span>
+                    </div>
+                  )}
 
-              {discountToman > 0 && (
-                <div className="flex justify-between text-emerald-600 font-semibold">
-                  <span>تخفیف:</span>
-                  <span className="font-mono font-bold">
-                    - {formatPrice(discountToman)} تومان
-                  </span>
+                  <div className="pt-3 border-t border-brand-border/60 dark:border-slate-800 flex justify-between items-baseline">
+                    <span className="font-bold text-sm text-brand-dark dark:text-white">مبلغ نهایی پرداخت:</span>
+                    <div className="text-left">
+                      <span className="text-2xl font-black text-brand-dark dark:text-white font-mono tracking-tight">
+                        {formatPrice(finalTotalToman)}
+                      </span>
+                      <span className="text-xs text-brand-muted dark:text-slate-400 font-bold mr-1">تومان</span>
+                    </div>
+                  </div>
                 </div>
-              )}
 
-              <div className="pt-2 border-t border-brand-border dark:border-slate-800 flex justify-between items-baseline">
-                <span className="font-bold text-sm text-brand-dark dark:text-white">مبلغ نهایی:</span>
-                <div className="text-left">
-                  <span className="text-2xl font-black text-brand-dark dark:text-white font-mono">
-                    {formatPrice(finalTotalToman)}
-                  </span>
-                  <span className="text-xs text-brand-muted dark:text-slate-400 font-bold mr-1">تومان</span>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !agreed}
+                  className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-black text-sm py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/35 hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2 text-xs">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>در حال استعلام لحظه‌ای انبار و صدور فاکتور...</span>
+                    </span>
+                  ) : (
+                    <>
+                      <CreditCard className="w-4 h-4" />
+                      <span>استعلام موجودی و رفتن به پرداخت کارت‌به‌کارت ➔</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="flex items-center justify-center gap-2 text-[11px] text-teal-800 dark:text-teal-300 bg-teal-500/10 border border-teal-500/20 p-3 rounded-xl">
+                  <ShieldCheck className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                  <span>پرداخت امن شتابی با پایش خودکار پیامک بانک CartBeCart</span>
                 </div>
               </div>
-            </div>
-
-            {stockError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 flex items-start gap-2 animate-shake text-xs">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <p className="leading-relaxed">{stockError}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-black text-sm py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/35 hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>در حال استعلام موجودی انبار و ثبت سفارش...</span>
-                </span>
-              ) : (
-                <>
-                  <CreditCard className="w-4 h-4" />
-                  <span>استعلام موجودی و رفتن به پرداخت کارت‌به‌کارت ➔</span>
-                </>
-              )}
-            </button>
-
-            <div className="flex items-center justify-center gap-1.5 text-[11px] text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 border border-teal-100 dark:border-teal-800/60 p-2.5 rounded-xl">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>پرداخت امن کارت‌به‌کارت با تایید آنی سیستم CartBeCart</span>
-            </div>
+            </Card3D>
           </div>
         </form>
       </main>
