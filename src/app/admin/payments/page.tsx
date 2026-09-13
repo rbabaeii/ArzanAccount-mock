@@ -321,61 +321,74 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
-        <div className="p-4.5 rounded-2xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800/80 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 block mb-1">
+      {/* Overview Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Pending Review Card */}
+        <div className="group relative overflow-hidden bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs border border-amber-300/80 dark:border-amber-800/70 rounded-2xl p-5 shadow-card hover:shadow-xl hover:shadow-amber-500/5 hover:border-amber-400 dark:hover:border-amber-400/50 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 relative z-10 shrink-0 shadow-xs">
+            <Clock className="w-6 h-6" />
+          </div>
+          <div className="relative z-10 min-w-0">
+            <span className="text-xs text-amber-700 dark:text-amber-400/90 font-medium block">
               در انتظار بررسی دستی
             </span>
-            <span className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
-              {pendingReviewCount}
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
-            <Clock className="w-5 h-5" />
+            <div className="text-xl font-black font-mono text-amber-600 dark:text-amber-400 mt-1 tracking-tight flex items-center gap-2">
+              <span>{pendingReviewCount}</span>
+              <span className="text-xs font-normal text-amber-600/80 dark:text-amber-400/70 font-sans">تراکنش</span>
+              {pendingReviewCount > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+            </div>
           </div>
         </div>
 
-        <div className="p-4.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+        {/* Auto Verified Card */}
+        <div className="group relative overflow-hidden bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-card hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-400/50 dark:hover:border-emerald-400/40 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4">
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 relative z-10 shrink-0 shadow-xs">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <div className="relative z-10 min-w-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">
               تأیید شده آنی (خودکار)
             </span>
-            <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
-              {autoVerifiedCount}
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5" />
+            <div className="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1 tracking-tight flex items-center gap-2">
+              <span>{autoVerifiedCount}</span>
+              <span className="text-xs font-normal text-slate-400 font-sans">تراکنش</span>
+            </div>
           </div>
         </div>
 
-        <div className="p-4.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+        {/* Admin Approved Card */}
+        <div className="group relative overflow-hidden bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/50 dark:hover:border-teal-400/40 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4">
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/70 text-teal-600 dark:text-teal-400 flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 relative z-10 shrink-0 shadow-xs">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div className="relative z-10 min-w-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">
               تأیید شده دستی (ادمین)
             </span>
-            <span className="text-2xl font-black text-teal-600 dark:text-teal-400 font-mono">
-              {approvedCount}
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
+            <div className="text-xl font-black font-mono text-teal-600 dark:text-teal-400 mt-1 tracking-tight flex items-center gap-2">
+              <span>{approvedCount}</span>
+              <span className="text-xs font-normal text-slate-400 font-sans">تراکنش</span>
+            </div>
           </div>
         </div>
 
-        <div className="p-4.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+        {/* Total Transactions Card */}
+        <div className="group relative overflow-hidden bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs border border-slate-200 dark:border-slate-800/80 rounded-2xl p-5 shadow-card hover:shadow-xl hover:shadow-slate-500/5 hover:border-slate-400/50 dark:hover:border-slate-700 hover:-translate-y-1 transition-all duration-300 flex items-center gap-4">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 relative z-10 shrink-0 shadow-xs">
+            <CreditCard className="w-6 h-6" />
+          </div>
+          <div className="relative z-10 min-w-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">
               کل تراکنش‌ها
             </span>
-            <span className="text-2xl font-black text-slate-900 dark:text-white font-mono">
-              {totalCount}
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 flex items-center justify-center">
-            <CreditCard className="w-5 h-5" />
+            <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1 tracking-tight flex items-center gap-2">
+              <span>{totalCount}</span>
+              <span className="text-xs font-normal text-slate-400 font-sans">تراکنش</span>
+            </div>
           </div>
         </div>
       </div>
