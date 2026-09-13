@@ -195,7 +195,13 @@ export const OrderInvoiceModal: React.FC<OrderInvoiceModalProps> = ({ order, onC
               <div className="flex justify-between">
                 <span className="text-slate-500">درگاه پرداخت:</span>
                 <span className="font-semibold text-slate-900">
-                  {order.paymentGateway === "zarinpal" ? "شاپرک / زرین‌پال" : "شاپرک / نکست‌پی"}
+                  {order.paymentGateway === "cartbecart"
+                    ? "کارت‌به‌کارت (CartBeCart)"
+                    : order.paymentGateway === "zarinpal"
+                    ? "شاپرک / زرین‌پال"
+                    : order.paymentGateway === "nextpay"
+                    ? "شاپرک / نکست‌پی"
+                    : "ارز دیجیتال (تتر)"}
                 </span>
               </div>
             </div>

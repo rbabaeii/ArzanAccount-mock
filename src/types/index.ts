@@ -64,9 +64,9 @@ export interface Order {
   }[];
   totalPriceToman: number;
   totalPriceUsd: number;
-  status: "delivered" | "processing" | "failed" | "cancelled" | "refund_requested" | "refunded";
+  status: "delivered" | "processing" | "pending" | "failed" | "cancelled" | "refund_requested" | "refunded";
   deliveredAccounts?: string[]; // e.g. ["user@domain.com:Pass123 (pin: 4421)"]
-  paymentGateway: "zarinpal" | "nextpay" | "crypto";
+  paymentGateway: "zarinpal" | "nextpay" | "crypto" | "cartbecart";
   discountAppliedToman?: number;
   deliveryType?: string; // "link" | "credentials" | "account_activation"
   targetAccountEmail?: string;

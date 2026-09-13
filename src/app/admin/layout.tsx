@@ -37,6 +37,7 @@ import {
   ArrowRight,
   Undo2,
   Tag,
+  CreditCard,
 } from "lucide-react";
 
 interface NavItem {
@@ -91,6 +92,7 @@ export default function AdminLayout({
     if (itemHref === "/admin/admin-activities") return user?.role === "SUPER_ADMIN";
     if (itemHref === "/admin/orders/refunds") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (itemHref === "/admin/withdrawals") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
+    if (itemHref === "/admin/payments") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (itemHref === "/admin/settings/email") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (user?.role === "SUPER_ADMIN") return true;
     if (itemHref === "/admin") return true;
@@ -98,7 +100,7 @@ export default function AdminLayout({
       return ["/admin/products", "/admin/inventory", "/admin/categories", "/admin/tags"].includes(itemHref);
     }
     if (user?.role === "FINANCE_ADMIN") {
-      return ["/admin/settings/currency", "/admin/discounts", "/admin/analytics", "/admin/orders/refunds", "/admin/withdrawals"].includes(itemHref);
+      return ["/admin/settings/currency", "/admin/discounts", "/admin/analytics", "/admin/orders/refunds", "/admin/withdrawals", "/admin/payments"].includes(itemHref);
     }
     if (user?.role === "SUPPORT_ADMIN") {
       return ["/admin/orders"].includes(itemHref);
@@ -110,6 +112,7 @@ export default function AdminLayout({
     if (pathname.startsWith("/admin/admin-activities")) return user?.role === "SUPER_ADMIN";
     if (pathname.startsWith("/admin/orders/refunds")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (pathname.startsWith("/admin/withdrawals")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
+    if (pathname.startsWith("/admin/payments")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (pathname.startsWith("/admin/settings/email")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (user?.role === "SUPER_ADMIN") return true;
     if (pathname === "/admin") return true;
@@ -117,7 +120,7 @@ export default function AdminLayout({
       return ["/admin/products", "/admin/inventory", "/admin/categories", "/admin/tags"].some((p) => pathname.startsWith(p));
     }
     if (user?.role === "FINANCE_ADMIN") {
-      return ["/admin/settings/currency", "/admin/discounts", "/admin/analytics", "/admin/orders/refunds", "/admin/withdrawals"].some((p) => pathname.startsWith(p));
+      return ["/admin/settings/currency", "/admin/discounts", "/admin/analytics", "/admin/orders/refunds", "/admin/withdrawals", "/admin/payments"].some((p) => pathname.startsWith(p));
     }
     if (user?.role === "SUPPORT_ADMIN") {
       return ["/admin/orders"].some((p) => pathname.startsWith(p)) && !pathname.startsWith("/admin/orders/refunds");
@@ -159,6 +162,13 @@ export default function AdminLayout({
           icon: <Wallet className="w-4 h-4" />,
           badge: "تسویه",
           badgeColor: "bg-emerald-600/90 text-white font-bold",
+        },
+        {
+          title: "پرداخت‌های کارت‌به‌کارت",
+          href: "/admin/payments",
+          icon: <CreditCard className="w-4 h-4" />,
+          badge: "CartBeCart",
+          badgeColor: "bg-teal-600/90 text-white font-bold",
         },
         {
           title: "انبار و کنترل موجودی",

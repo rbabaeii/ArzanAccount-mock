@@ -17,10 +17,12 @@ import {
   CheckCircle2,
   Key,
   Undo2,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { toPersianDateTime } from "@/lib/date";
 import { CustomerRefundModal } from "@/components/store/CustomerRefundModal";
+import CardPaymentModal from "@/components/payment/CardPaymentModal";
 import { Order } from "@/types";
 
 function OrderTrackingContent() {
@@ -31,6 +33,7 @@ function OrderTrackingContent() {
   const [query, setQuery] = useState(initialId);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [refundModalOrder, setRefundModalOrder] = useState<Order | null>(null);
+  const [isCardModalOpen, setIsCardModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialId) setQuery(initialId);
@@ -139,6 +142,18 @@ function OrderTrackingContent() {
                       خطا در انجام
                     </span>
                   )}
+                  {searchedOrder.status === "pending" && (
+                    <span className="bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1 shadow-2xs">
+                      <CreditCard className="w-3.5 h-3.5 animate-pulse" />
+                      در انتظار پرداخت کارت‌به‌کارت
+                    </span>
+                  )}
+                  {searchedOrder.status === "cancelled" && (
+                    <span className="bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1 shadow-2xs">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      سفارش لغو شده
+                    </span>
+                  )}
                 </div>
                 {searchedOrder.refundRejectionReason && (
                   <div className="mt-2 text-xs bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-2.5 text-rose-700 dark:text-rose-300">
@@ -161,6 +176,17 @@ function OrderTrackingContent() {
                     {formatPrice(searchedOrder.totalPriceToman)} تومان
                   </span>
                 </div>
+
+                {searchedOrder.status === "pending" && searchedOrder.paymentGateway === "cartbecart" && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCardModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>تکمیل پرداخت / ثبت فیش</span>
+                  </button>
+                )}
 
                 {(searchedOrder.status === "delivered" || searchedOrder.status === "processing") && (
                   <button
@@ -292,6 +318,23 @@ function OrderTrackingContent() {
           order={refundModalOrder}
           onClose={() => setRefundModalOrder(null)}
         />
+
+        {isCardModalOpen && searchedOrder && (
+          <CardPaymentModal
+            isOpen={isCardModalOpen}
+            onClose={() => setIsCardModalOpen(false)}
+            amountToman={searchedOrder.totalPriceToman}
+            orderNumber={searchedOrder.orderNumber}
+            orderId={searchedOrder.id}
+            customerName={searchedOrder.customerEmail}
+            customerPhone={searchedOrder.customerPhone || undefined}
+            paymentType="ORDER"
+            onSuccess={() => {
+              setIsCardModalOpen(false);
+              window.location.reload();
+            }}
+          />
+        )}
       </main>
 
       <Footer />

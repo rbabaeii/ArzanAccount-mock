@@ -557,7 +557,13 @@ export default function AdminOrdersPage() {
 
                   <td className="py-3.5 px-4">
                     <span className="text-[11px] bg-neutral-100 dark:bg-slate-800 text-neutral-700 dark:text-slate-300 px-2 py-0.5 rounded font-medium">
-                      {order.paymentGateway === "zarinpal" ? "زرین‌پال" : order.paymentGateway === "nextpay" ? "نکست‌پی" : "تتر TRC20"}
+                      {order.paymentGateway === "cartbecart"
+                        ? "کارت‌به‌کارت"
+                        : order.paymentGateway === "zarinpal"
+                        ? "زرین‌پال"
+                        : order.paymentGateway === "nextpay"
+                        ? "نکست‌پی"
+                        : "تتر TRC20"}
                     </span>
                   </td>
 
@@ -707,7 +713,14 @@ export default function AdminOrdersPage() {
                     <span>•</span>
                     <span className="flex items-center gap-1">
                       <CreditCard className="w-3.5 h-3.5 text-neutral-400 dark:text-slate-500" />
-                      <span>درگاه {selectedOrder.paymentGateway === "zarinpal" ? "زرین‌پال" : "نکست‌پی"}</span>
+                      <span>
+                        درگاه{" "}
+                        {selectedOrder.paymentGateway === "cartbecart"
+                          ? "کارت‌به‌کارت (CartBeCart)"
+                          : selectedOrder.paymentGateway === "zarinpal"
+                          ? "زرین‌پال"
+                          : "نکست‌پی"}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -1146,7 +1159,11 @@ export default function AdminOrdersPage() {
                       <div className="flex justify-between items-center text-neutral-600 dark:text-slate-400">
                         <span>روش پرداخت:</span>
                         <span className="font-semibold text-slate-900 dark:text-white">
-                          {selectedOrder.paymentGateway === "zarinpal" ? "زرین‌پال (شتاب)" : "نکست‌پی"}
+                          {selectedOrder.paymentGateway === "cartbecart"
+                            ? "کارت‌به‌کارت (CartBeCart)"
+                            : selectedOrder.paymentGateway === "zarinpal"
+                            ? "زرین‌پال (شتاب)"
+                            : "نکست‌پی"}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-neutral-600 dark:text-slate-400">

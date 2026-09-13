@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatPrice, formatNumber } from "@/lib/format";
+import CardPaymentModal from "@/components/payment/CardPaymentModal";
 
 interface AccountSlot {
   key: string;
@@ -68,10 +69,18 @@ export default function CheckoutPage() {
   const [targetAccountLink, setTargetAccountLink] = useState("");
   const [targetAccountComments, setTargetAccountComments] = useState("");
 
-  const [gateway, setGateway] = useState<"zarinpal" | "nextpay" | "crypto">("zarinpal");
+  const [gateway, setGateway] = useState<"cartbecart" | "zarinpal" | "nextpay" | "crypto">("cartbecart");
   const [agreed, setAgreed] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
+
+  // Card-to-Card Payment Modal State
+  const [pendingCardOrder, setPendingCardOrder] = useState<{
+    orderNumber: string;
+    orderId?: string;
+    totalPriceToman: number;
+  } | null>(null);
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
 
   // Sync with user profile once loaded
   useEffect(() => {
@@ -347,6 +356,17 @@ export default function CheckoutPage() {
     });
 
     setIsSubmitting(false);
+
+    if (gateway === "cartbecart") {
+      setPendingCardOrder({
+        orderNumber: newOrder.orderNumber,
+        orderId: backendRes?.id,
+        totalPriceToman: finalTotalToman,
+      });
+      setIsCardModalOpen(true);
+      return;
+    }
+
     router.push(`/orders?id=${newOrder.orderNumber}`);
   };
 
@@ -699,10 +719,49 @@ export default function CheckoutPage() {
             <div className="group/gateway relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-brand-border dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/40 dark:hover:border-teal-400/30 transition-all duration-300 space-y-4">
               <h2 className="text-sm font-bold text-brand-dark dark:text-white pb-3 border-b border-brand-border dark:border-slate-800 flex items-center gap-2">
                 <Lock className="w-4 h-4 text-brand-primary dark:text-teal-400" />
-                <span>انتخاب درگاه پرداخت شاپرک / رمزارز</span>
+                <span>انتخاب روش و درگاه پرداخت</span>
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                {/* CartBeCart - Recommended Card-to-Card */}
+                <label
+                  onClick={() => setGateway("cartbecart")}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all duration-200 flex flex-col justify-between hover:scale-[1.01] active:scale-95 col-span-1 sm:col-span-3 ${
+                    gateway === "cartbecart"
+                      ? "border-teal-500 bg-gradient-to-br from-teal-500/15 via-emerald-500/10 to-teal-900/10 shadow-sm ring-1 ring-teal-500/30 dark:from-teal-950/60 dark:to-emerald-950/30"
+                      : "border-brand-border dark:border-slate-700 hover:border-teal-400/50 hover:bg-neutral-50 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center font-black text-xs">
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-brand-dark dark:text-white text-sm">
+                            کارت‌به‌کارت هوشمند (تأیید آنی خودکار)
+                          </span>
+                          <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                            پیشنهادی / CartBeCart
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-teal-700 dark:text-teal-300 font-medium">
+                          انتقال از کلیه بانک‌ها (بلو، آپ، توبانک و...) بدون قطعی شاپرک
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-5 h-5 rounded-full border border-teal-500 flex items-center justify-center shrink-0">
+                      {gateway === "cartbecart" && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse" />
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-brand-muted dark:text-slate-400 mt-1">
+                    پایش خودکار پیامک واریز توسط سامانه با تطبیق دقیق مبلغ + امکان پیوست دستی فیش واریزی در صورت بروز اختلال
+                  </p>
+                </label>
+
                 <label
                   onClick={() => setGateway("zarinpal")}
                   className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between hover:scale-[1.02] active:scale-95 ${
@@ -717,7 +776,7 @@ export default function CheckoutPage() {
                       {gateway === "zarinpal" && <span className="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse" />}
                     </span>
                   </div>
-                  <span className="text-[11px] text-brand-muted dark:text-slate-400">کلیه کارت‌های عضو شتاب</span>
+                  <span className="text-[11px] text-brand-muted dark:text-slate-400">درگاه پرداخت شتاب شاپرک</span>
                 </label>
 
                 <label
@@ -734,7 +793,7 @@ export default function CheckoutPage() {
                       {gateway === "nextpay" && <span className="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse" />}
                     </span>
                   </div>
-                  <span className="text-[11px] text-brand-muted dark:text-slate-400">درگاه پرداخت سریع شاپرک</span>
+                  <span className="text-[11px] text-brand-muted dark:text-slate-400">درگاه واسط سریع شاپرک</span>
                 </label>
 
                 <label
@@ -877,6 +936,30 @@ export default function CheckoutPage() {
             </div>
           </div>
         </form>
+
+        {/* Card-to-Card (CartBeCart) Payment Modal */}
+        {isCardModalOpen && pendingCardOrder && (
+          <CardPaymentModal
+            isOpen={isCardModalOpen}
+            onClose={() => {
+              setIsCardModalOpen(false);
+              if (pendingCardOrder?.orderNumber) {
+                router.push(`/orders?id=${pendingCardOrder.orderNumber}`);
+              }
+            }}
+            amountToman={pendingCardOrder.totalPriceToman}
+            orderNumber={pendingCardOrder.orderNumber}
+            orderId={pendingCardOrder.orderId}
+            userId={user?.id}
+            customerName={name}
+            customerPhone={phone}
+            paymentType="ORDER"
+            onSuccess={() => {
+              setIsCardModalOpen(false);
+              router.push(`/orders?id=${pendingCardOrder.orderNumber}`);
+            }}
+          />
+        )}
       </main>
 
       <Footer />

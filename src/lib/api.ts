@@ -647,4 +647,105 @@ export const api = {
     request<any>("/search/reindex", {
       method: "POST",
     }),
+
+  // CartBeCart Card-to-Card Payment API
+  initiateCardPayment: (data: {
+    amountToman: number;
+    paymentType: "ORDER" | "WALLET_TOPUP";
+    orderNumber?: string;
+    orderId?: string;
+    userId?: string;
+    customerName?: string;
+    customerPhone?: string;
+    callbackUrl?: string;
+  }) =>
+    request<any>("/cartbecart/initiate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  checkCardPaymentStatus: (paymentToken: string) =>
+    request<any>(`/cartbecart/status/${paymentToken}`, {
+      method: "GET",
+    }),
+
+  submitManualReceipt: (data: {
+    paymentToken?: string;
+    amountToman: number;
+    paymentType?: "ORDER" | "WALLET_TOPUP";
+    orderNumber?: string;
+    orderId?: string;
+    userId?: string;
+    trackingCode: string;
+    userCardNumber?: string;
+    receiptUrl?: string;
+    depositTime?: string;
+    userNote?: string;
+  }) =>
+    request<any>("/cartbecart/submit-receipt", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  simulateCardPaymentSuccess: (paymentToken: string) =>
+    request<any>(`/cartbecart/simulate-success/${paymentToken}`, {
+      method: "POST",
+    }),
+
+  getAdminCardPayments: (params?: {
+    status?: string;
+    type?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    role?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.append("status", params.status);
+    if (params?.type) query.append("type", params.type);
+    if (params?.search) query.append("search", params.search);
+    if (params?.page) query.append("page", String(params.page));
+    if (params?.limit) query.append("limit", String(params.limit));
+    if (params?.role) query.append("role", params.role);
+    return request<any>(`/cartbecart/admin/payments?${query.toString()}`);
+  },
+
+  adminApproveCardPayment: (
+    id: string,
+    data: { adminNote?: string },
+    adminUser?: { id?: string; name?: string; phone?: string; role?: string }
+  ) =>
+    request<any>(`/cartbecart/admin/approve/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ ...data, adminUser }),
+    }),
+
+  adminRejectCardPayment: (
+    id: string,
+    data: { reason: string },
+    adminUser?: { id?: string; name?: string; phone?: string; role?: string }
+  ) =>
+    request<any>(`/cartbecart/admin/reject/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ ...data, adminUser }),
+    }),
+
+  getCartBeCartSettings: (role: string = "SUPER_ADMIN") =>
+    request<any>(`/cartbecart/admin/settings?role=${role}`),
+
+  updateCartBeCartSettings: (
+    data: {
+      apiKey?: string;
+      fallbackCardNumber?: string;
+      fallbackCardOwner?: string;
+      fallbackBankName?: string;
+      enabled?: boolean;
+    },
+    role: string = "SUPER_ADMIN"
+  ) =>
+    request<any>("/cartbecart/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify({ ...data, role }),
+    }),
 };
+
