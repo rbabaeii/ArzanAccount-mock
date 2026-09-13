@@ -577,6 +577,8 @@ export const api = {
     return request<{ orders: any[]; totalCount: number }>(`/orders${qs ? `?${qs}` : ""}`);
   },
 
+  getOrderById: (id: string) => request<any>(`/orders/${id}`),
+
   getRefundRequests: (role = "SUPER_ADMIN") =>
     request<any[]>(`/orders/refund-requests?role=${role}`),
 

@@ -31,7 +31,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatPrice, formatNumber } from "@/lib/format";
-import CardPaymentModal from "@/components/payment/CardPaymentModal";
 
 interface AccountSlot {
   key: string;
@@ -69,18 +68,10 @@ export default function CheckoutPage() {
   const [targetAccountLink, setTargetAccountLink] = useState("");
   const [targetAccountComments, setTargetAccountComments] = useState("");
 
-  const [gateway, setGateway] = useState<"cartbecart" | "zarinpal" | "nextpay" | "crypto">("cartbecart");
+  const [gateway] = useState<"cartbecart">("cartbecart");
   const [agreed, setAgreed] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
-
-  // Card-to-Card Payment Modal State
-  const [pendingCardOrder, setPendingCardOrder] = useState<{
-    orderNumber: string;
-    orderId?: string;
-    totalPriceToman: number;
-  } | null>(null);
-  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
 
   // Sync with user profile once loaded
   useEffect(() => {
@@ -357,17 +348,8 @@ export default function CheckoutPage() {
 
     setIsSubmitting(false);
 
-    if (gateway === "cartbecart") {
-      setPendingCardOrder({
-        orderNumber: newOrder.orderNumber,
-        orderId: backendRes?.id,
-        totalPriceToman: finalTotalToman,
-      });
-      setIsCardModalOpen(true);
-      return;
-    }
-
-    router.push(`/orders?id=${newOrder.orderNumber}`);
+    // Redirect directly to the dedicated Card-to-Card payment page
+    router.push(`/payment/card/${newOrder.orderNumber}`);
   };
 
   if (isLoading || !isAuthenticated) {
@@ -715,103 +697,59 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Step 3: Payment Gateway Selector */}
+            {/* Step 3: Payment Gateway Selector (Exclusive Card-to-Card) */}
             <div className="group/gateway relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-brand-border dark:border-slate-800 rounded-2xl p-6 sm:p-7 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/40 dark:hover:border-teal-400/30 transition-all duration-300 space-y-4">
-              <h2 className="text-sm font-bold text-brand-dark dark:text-white pb-3 border-b border-brand-border dark:border-slate-800 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-brand-primary dark:text-teal-400" />
-                <span>انتخاب روش و درگاه پرداخت</span>
-              </h2>
+              <div className="flex items-center justify-between pb-3 border-b border-brand-border dark:border-slate-800">
+                <h2 className="text-sm font-bold text-brand-dark dark:text-white flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-brand-primary dark:text-teal-400" />
+                  <span>روش پرداخت سفارش</span>
+                </h2>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>روش انحصاری و تایید آنی</span>
+                </span>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                {/* CartBeCart - Recommended Card-to-Card */}
-                <label
-                  onClick={() => setGateway("cartbecart")}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all duration-200 flex flex-col justify-between hover:scale-[1.01] active:scale-95 col-span-1 sm:col-span-3 ${
-                    gateway === "cartbecart"
-                      ? "border-teal-500 bg-gradient-to-br from-teal-500/15 via-emerald-500/10 to-teal-900/10 shadow-sm ring-1 ring-teal-500/30 dark:from-teal-950/60 dark:to-emerald-950/30"
-                      : "border-brand-border dark:border-slate-700 hover:border-teal-400/50 hover:bg-neutral-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center font-black text-xs">
-                        <CreditCard className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-brand-dark dark:text-white text-sm">
-                            کارت‌به‌کارت هوشمند (تأیید آنی خودکار)
-                          </span>
-                          <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                            پیشنهادی / CartBeCart
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-teal-700 dark:text-teal-300 font-medium">
-                          انتقال از کلیه بانک‌ها (بلو، آپ، توبانک و...) بدون قطعی شاپرک
+              {/* Exclusive CartBeCart Card */}
+              <div className="p-5 rounded-2xl border border-teal-500/40 bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-teal-950/10 dark:from-teal-950/50 dark:via-emerald-950/20 dark:to-slate-900 shadow-sm ring-1 ring-teal-500/20 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-teal-500/20 shrink-0">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-brand-dark dark:text-white text-sm sm:text-base">
+                          کارت‌به‌کارت هوشمند شتابی (سامانه CartBeCart)
+                        </span>
+                        <span className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
+                          فعال و خودکار
                         </span>
                       </div>
+                      <span className="text-xs text-teal-700 dark:text-teal-300 font-medium block mt-0.5">
+                        واریز مستقیم و آنی از کلیه اپلیکیشن‌ها و بانک‌های کشور بدون نیاز به رمز پویا
+                      </span>
                     </div>
-                    <span className="w-5 h-5 rounded-full border border-teal-500 flex items-center justify-center shrink-0">
-                      {gateway === "cartbecart" && (
-                        <span className="w-2.5 h-2.5 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse" />
-                      )}
-                    </span>
                   </div>
-                  <p className="text-[11px] text-brand-muted dark:text-slate-400 mt-1">
-                    پایش خودکار پیامک واریز توسط سامانه با تطبیق دقیق مبلغ + امکان پیوست دستی فیش واریزی در صورت بروز اختلال
-                  </p>
-                </label>
+                  <span className="w-6 h-6 rounded-full border-2 border-teal-500 bg-teal-500/20 flex items-center justify-center shrink-0 mt-1">
+                    <Check className="w-3.5 h-3.5 text-teal-600 dark:text-teal-300 stroke-[3]" />
+                  </span>
+                </div>
 
-                <label
-                  onClick={() => setGateway("zarinpal")}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between hover:scale-[1.02] active:scale-95 ${
-                    gateway === "zarinpal"
-                      ? "border-teal-500 bg-gradient-to-br from-teal-500/10 to-emerald-500/5 dark:from-teal-950/50 dark:to-emerald-950/20 shadow-xs"
-                      : "border-brand-border dark:border-slate-700 hover:border-teal-400/50 hover:bg-neutral-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-brand-dark dark:text-white">زرین‌پال</span>
-                    <span className="w-4 h-4 rounded-full border border-teal-500 flex items-center justify-center">
-                      {gateway === "zarinpal" && <span className="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse" />}
-                    </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 text-[11px] text-slate-600 dark:text-slate-300 border-t border-teal-500/15">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>تطبیق و تایید آنی پیامک بانک</span>
                   </div>
-                  <span className="text-[11px] text-brand-muted dark:text-slate-400">درگاه پرداخت شتاب شاپرک</span>
-                </label>
-
-                <label
-                  onClick={() => setGateway("nextpay")}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between hover:scale-[1.02] active:scale-95 ${
-                    gateway === "nextpay"
-                      ? "border-teal-500 bg-gradient-to-br from-teal-500/10 to-emerald-500/5 dark:from-teal-950/50 dark:to-emerald-950/20 shadow-xs"
-                      : "border-brand-border dark:border-slate-700 hover:border-teal-400/50 hover:bg-neutral-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-brand-dark dark:text-white">نکست‌پی</span>
-                    <span className="w-4 h-4 rounded-full border border-teal-500 flex items-center justify-center">
-                      {gateway === "nextpay" && <span className="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse" />}
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>بلو، آپ، توبانک، همراه بانک‌ها</span>
                   </div>
-                  <span className="text-[11px] text-brand-muted dark:text-slate-400">درگاه واسط سریع شاپرک</span>
-                </label>
-
-                <label
-                  onClick={() => setGateway("crypto")}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 flex flex-col justify-between hover:scale-[1.02] active:scale-95 ${
-                    gateway === "crypto"
-                      ? "border-teal-500 bg-gradient-to-br from-teal-500/10 to-emerald-500/5 dark:from-teal-950/50 dark:to-emerald-950/20 shadow-xs"
-                      : "border-brand-border dark:border-slate-700 hover:border-teal-400/50 hover:bg-neutral-50 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-brand-dark dark:text-white">تتر (USDT)</span>
-                    <span className="w-4 h-4 rounded-full border border-teal-500 flex items-center justify-center">
-                      {gateway === "crypto" && <span className="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse" />}
-                    </span>
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>پیوست دستی فیش در صورت نیاز</span>
                   </div>
-                  <span className="text-[11px] text-brand-muted dark:text-slate-400">تسویه با رمزارز TRC20</span>
-                </label>
+                </div>
               </div>
 
               <div className="pt-2">
@@ -915,51 +853,27 @@ export default function CheckoutPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/35 hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer"
+              className="w-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-black text-sm py-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 hover:shadow-amber-500/35 hover:scale-[1.02] active:scale-95 disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>در حال استعلام انبار و اتصال به درگاه...</span>
+                  <span>در حال استعلام موجودی انبار و ثبت سفارش...</span>
                 </span>
               ) : (
                 <>
-                  <Zap className="w-4 h-4 fill-slate-950" />
-                  <span>پرداخت و ثبت سفارش</span>
+                  <CreditCard className="w-4 h-4" />
+                  <span>استعلام موجودی و رفتن به پرداخت کارت‌به‌کارت ➔</span>
                 </>
               )}
             </button>
 
             <div className="flex items-center justify-center gap-1.5 text-[11px] text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/50 border border-teal-100 dark:border-teal-800/60 p-2.5 rounded-xl">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>پرداخت ۱۰۰٪ امن با کد رهگیری شاپرک</span>
+              <span>پرداخت امن کارت‌به‌کارت با تایید آنی سیستم CartBeCart</span>
             </div>
           </div>
         </form>
-
-        {/* Card-to-Card (CartBeCart) Payment Modal */}
-        {isCardModalOpen && pendingCardOrder && (
-          <CardPaymentModal
-            isOpen={isCardModalOpen}
-            onClose={() => {
-              setIsCardModalOpen(false);
-              if (pendingCardOrder?.orderNumber) {
-                router.push(`/orders?id=${pendingCardOrder.orderNumber}`);
-              }
-            }}
-            amountToman={pendingCardOrder.totalPriceToman}
-            orderNumber={pendingCardOrder.orderNumber}
-            orderId={pendingCardOrder.orderId}
-            userId={user?.id}
-            customerName={name}
-            customerPhone={phone}
-            paymentType="ORDER"
-            onSuccess={() => {
-              setIsCardModalOpen(false);
-              router.push(`/orders?id=${pendingCardOrder.orderNumber}`);
-            }}
-          />
-        )}
       </main>
 
       <Footer />

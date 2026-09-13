@@ -16,7 +16,7 @@ export function OrganizationJsonLd({ name, url, logo, description }: Organizatio
     logo,
     description,
     priceRange: "IRR",
-    paymentAccepted: "ZarinPal, NextPay, Cryptocurrency",
+    paymentAccepted: "Card to Card (CartBeCart)",
     currenciesAccepted: "IRR, USD",
     potentialAction: {
       "@type": "SearchAction",

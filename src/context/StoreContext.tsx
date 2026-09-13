@@ -190,7 +190,7 @@ function mapBackendOrder(bo: any): Order {
     totalPriceUsd: bo.totalPriceUsd || 0,
     status: (bo.status as any) || "processing",
     deliveredAccounts,
-    paymentGateway: bo.paymentGateway || bo.gateway || "zarinpal",
+    paymentGateway: bo.paymentGateway || bo.gateway || "cartbecart",
     approvedByAdminId: bo.approvedByAdminId || undefined,
     approvedByAdminName: bo.approvedByAdminName || undefined,
     approvedByAdminPhone: bo.approvedByAdminPhone || undefined,
