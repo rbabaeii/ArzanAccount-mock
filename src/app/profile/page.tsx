@@ -560,7 +560,7 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col justify-between">
         <Header />
-        <main className="flex-1 flex items-center justify-center p-4">
+        <main className="flex-1 flex items-center justify-center p-4 pb-32 sm:pb-8">
           <div className="group relative overflow-hidden max-w-md w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-brand-border dark:border-slate-800 rounded-3xl p-8 text-center shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/40 dark:hover:border-teal-400/30 transition-all duration-300 space-y-6">
             <div className="absolute -top-12 -right-12 w-28 h-28 bg-teal-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-500 pointer-events-none" />
             <div className="w-16 h-16 bg-teal-50 dark:bg-teal-950/60 text-brand-primary dark:text-teal-400 rounded-2xl flex items-center justify-center mx-auto shadow-sm">

@@ -108,7 +108,7 @@ function LoginContent() {
   const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(120);
+  const [countdown, setCountdown] = useState(30);
 
   useEffect(() => {
     if (referralParam && !referralCode) {
@@ -157,7 +157,7 @@ function LoginContent() {
     if (res.success) {
       if (targetPhone) setPhone(targetPhone);
       setStep("otp");
-      setCountdown(120);
+      setCountdown(30);
       setSuccessMessage(res.message);
       setOtp("");
     } else {
@@ -179,7 +179,7 @@ function LoginContent() {
       const res = await sendEmailOtp(phoneNumber);
       if (res.success) {
         setSuccessMessage(res.message);
-        setCountdown(120);
+        setCountdown(30);
       } else {
         setErrorMessage(res.message || "خطا در ارسال کد به ایمیل.");
       }
@@ -526,7 +526,12 @@ function LoginContent() {
                     <div className="flex items-center justify-between text-[11.5px]">
                       <button
                         type="button"
-                        onClick={() => setStep("input")}
+                        onClick={() => {
+                          setStep("input");
+                          setErrorMessage(null);
+                          setSuccessMessage(null);
+                          setOtp("");
+                        }}
                         className="text-slate-500 dark:text-slate-400 hover:text-brand-dark dark:hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <ArrowRight className="w-3.5 h-3.5" />

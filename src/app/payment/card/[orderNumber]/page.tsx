@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/store/Header";
@@ -40,6 +40,8 @@ import {
 } from "lucide-react";
 import AmbientGlow from "@/components/ui/AmbientGlow";
 import Card3D from "@/components/ui/Card3D";
+import AnimatedStepper from "@/components/ui/AnimatedStepper";
+import GlowOverlay from "@/components/ui/GlowOverlay";
 
 export default function CardPaymentPage() {
   const params = useParams();
@@ -148,65 +150,57 @@ export default function CardPaymentPage() {
   }, [orderNumber]);
 
   // 2. Initiate CartBeCart Payment once Order is Loaded
-  useEffect(() => {
+  const initiatePayment = useCallback(async () => {
     if (!order || paymentStatus === "PAID") return;
 
-    let isMounted = true;
-    const initiate = async () => {
-      setIsPaymentLoading(true);
-      setPaymentInitError(null);
-      try {
-        const callbackUrl =
-          typeof window !== "undefined"
-            ? `${window.location.origin}/payment/cartbecart/callback`
-            : undefined;
+    setIsPaymentLoading(true);
+    setPaymentInitError(null);
+    try {
+      const callbackUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/payment/cartbecart/callback`
+          : undefined;
 
-        const res = await api.initiateCardPayment({
-          amountToman: order.totalPriceToman,
-          paymentType: "ORDER",
-          orderNumber: order.orderNumber,
-          orderId: order.id,
-          userId: user?.id,
-          customerName: order.customerEmail || user?.name || "مشتری گرامی",
-          customerPhone: order.customerPhone || user?.phone,
-          callbackUrl,
-        });
+      const res = await api.initiateCardPayment({
+        amountToman: order.totalPriceToman,
+        paymentType: "ORDER",
+        orderNumber: order.orderNumber,
+        orderId: order.id,
+        userId: user?.id,
+        customerName: order.customerEmail || user?.name || "مشتری گرامی",
+        customerPhone: order.customerPhone || user?.phone,
+        callbackUrl,
+      });
 
-        if (isMounted) {
-          setPaymentData(res);
-          if (res.expiresAt) {
-            const diffSec = Math.max(
-              0,
-              Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000)
-            );
-            setSecondsRemaining(diffSec > 0 ? diffSec : 15 * 60);
-          } else {
-            setSecondsRemaining(15 * 60);
-          }
-        }
-      } catch (err: any) {
-        console.error("CartBeCart initiation error:", err);
-        if (isMounted) {
-          setPaymentInitError(
-            err?.message ||
-              "خطا در ایجاد تراکنش کارت‌به‌کارت. می‌توانید فیش واریزی خود را به صورت دستی ثبت فرمایید."
-          );
-        }
-      } finally {
-        if (isMounted) setIsPaymentLoading(false);
+      setPaymentData(res);
+      setPaymentStatus("PENDING");
+      if (res.expiresAt) {
+        const diffSec = Math.max(
+          0,
+          Math.floor((new Date(res.expiresAt).getTime() - Date.now()) / 1000)
+        );
+        setSecondsRemaining(diffSec > 0 ? diffSec : 15 * 60);
+      } else {
+        setSecondsRemaining(15 * 60);
       }
-    };
+    } catch (err: any) {
+      console.error("CartBeCart initiation error:", err);
+      setPaymentInitError(
+        err?.message ||
+          "خطا در ایجاد تراکنش کارت‌به‌کارت. می‌توانید فیش واریزی خود را به صورت دستی ثبت فرمایید."
+      );
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  }, [order, paymentStatus, user?.id, user?.name, user?.phone]);
 
-    initiate();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [order, user?.id, user?.name, user?.phone, paymentStatus]);
+  useEffect(() => {
+    initiatePayment();
+  }, [initiatePayment]);
 
   // 3. Countdown Timer Tick
   useEffect(() => {
-    if (paymentStatus === "PAID" || secondsRemaining <= 0) return;
+    if (paymentStatus === "PAID" || paymentStatus === "FAILED" || secondsRemaining <= 0) return;
 
     const timer = setInterval(() => {
       setSecondsRemaining((prev) => {
@@ -223,7 +217,15 @@ export default function CardPaymentPage() {
 
   // 4. Real-time Status Polling
   useEffect(() => {
-    if (!paymentData?.paymentToken || paymentStatus === "PAID") return;
+    if (
+      !paymentData?.paymentToken ||
+      paymentStatus === "PAID" ||
+      paymentStatus === "FAILED" ||
+      secondsRemaining <= 0
+    ) {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      return;
+    }
 
     const checkStatus = async () => {
       try {
@@ -241,6 +243,9 @@ export default function CardPaymentPage() {
           }
         } else if (res?.status === "MANUAL_REVIEW") {
           setPaymentStatus("MANUAL_REVIEW");
+        } else if (res?.status === "EXPIRED" || res?.status === "FAILED") {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setPaymentStatus("FAILED");
         }
       } catch {
         // Silent polling error, will retry on next interval
@@ -254,7 +259,7 @@ export default function CardPaymentPage() {
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [paymentData?.paymentToken, paymentStatus, orderNumber]);
+  }, [paymentData?.paymentToken, paymentStatus, secondsRemaining, orderNumber]);
 
   // Copy helper
   const handleCopy = (text: string, fieldName: string) => {
@@ -409,79 +414,7 @@ export default function CardPaymentPage() {
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 sm:py-12 pb-32 sm:pb-20 relative z-10">
         {/* Step Progress Stepper */}
-        <div className="max-w-3xl mx-auto mb-8 sm:mb-10">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400">
-            {/* Step 1: Cart */}
-            <div className="flex flex-col items-center gap-1.5 text-teal-600 dark:text-teal-400">
-              <div className="w-8 h-8 rounded-full bg-teal-500/15 border-2 border-teal-500 flex items-center justify-center text-teal-600 dark:text-teal-300">
-                <Check className="w-4 h-4 stroke-[3]" />
-              </div>
-              <span className="text-[11px] sm:text-xs">۱. سبد خرید</span>
-            </div>
-
-            <div className="flex-1 h-0.5 bg-teal-500/50 mx-2 -mt-5" />
-
-            {/* Step 2: Details */}
-            <div className="flex flex-col items-center gap-1.5 text-teal-600 dark:text-teal-400">
-              <div className="w-8 h-8 rounded-full bg-teal-500/15 border-2 border-teal-500 flex items-center justify-center text-teal-600 dark:text-teal-300">
-                <Check className="w-4 h-4 stroke-[3]" />
-              </div>
-              <span className="text-[11px] sm:text-xs">۲. مشخصات سفارش</span>
-            </div>
-
-            <div className="flex-1 h-0.5 bg-teal-500 mx-2 -mt-5" />
-
-            {/* Step 3: Card Payment (Active) */}
-            <div
-              className={`flex flex-col items-center gap-1.5 ${
-                paymentStatus === "PAID"
-                  ? "text-teal-600 dark:text-teal-400"
-                  : "text-amber-500 dark:text-amber-400 font-black"
-              }`}
-            >
-              <div
-                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-md ${
-                  paymentStatus === "PAID"
-                    ? "bg-teal-500/15 border-teal-500 text-teal-600 dark:text-teal-300"
-                    : "bg-amber-500/20 border-amber-500 text-amber-500 animate-pulse ring-4 ring-amber-500/10"
-                }`}
-              >
-                {paymentStatus === "PAID" ? (
-                  <Check className="w-4 h-4 stroke-[3]" />
-                ) : (
-                  <CreditCard className="w-4 h-4" />
-                )}
-              </div>
-              <span className="text-[11px] sm:text-xs">۳. پرداخت کارت‌به‌کارت</span>
-            </div>
-
-            <div
-              className={`flex-1 h-0.5 mx-2 -mt-5 transition-colors ${
-                paymentStatus === "PAID" ? "bg-teal-500" : "bg-slate-200 dark:bg-slate-800"
-              }`}
-            />
-
-            {/* Step 4: Fulfillment */}
-            <div
-              className={`flex flex-col items-center gap-1.5 ${
-                paymentStatus === "PAID"
-                  ? "text-emerald-600 dark:text-emerald-400 font-black"
-                  : "text-slate-400 dark:text-slate-600"
-              }`}
-            >
-              <div
-                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
-                  paymentStatus === "PAID"
-                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-md animate-bounce"
-                    : "bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-800 text-slate-400"
-                }`}
-              >
-                <Zap className="w-4 h-4" />
-              </div>
-              <span className="text-[11px] sm:text-xs">۴. تحویل اکانت</span>
-            </div>
-          </div>
-        </div>
+        <AnimatedStepper currentStep={paymentStatus === "PAID" ? 4 : 3} className="mb-8 sm:mb-10" />
 
         {/* Order Loading State */}
         {isOrderLoading && (
@@ -654,6 +587,49 @@ export default function CardPaymentPage() {
                 </div>
               )}
 
+              {/* Payment Failed or Expired State */}
+              {paymentStatus === "FAILED" && (
+                <div className="glass-panel border-2 border-rose-500/50 rounded-3xl p-6 sm:p-8 shadow-card space-y-5 animate-in zoom-in-95 duration-200">
+                  <div className="w-16 h-16 rounded-3xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto shadow-sm">
+                    <AlertCircle className="w-10 h-10" />
+                  </div>
+
+                  <div className="text-center space-y-2">
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20">
+                      مهلت واریز به اتمام رسید یا تراکنش منقضی شد
+                    </span>
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                      انقضای تراکنش پرداخت
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+                      مهلت ۱۵ دقیقه‌ای واریز و تطبیق پیامک برای این تراکنش به پایان رسیده است. در صورت تمایل می‌توانید شماره کارت و مهلت جدید دریافت نمایید یا فیش واریزی خود را به صورت دستی ثبت فرمایید.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => initiatePayment()}
+                      className="px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>دریافت مجدد شماره کارت و مهلت جدید</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("MANUAL");
+                        setPaymentStatus("PENDING");
+                      }}
+                      className="px-5 py-3 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>ثبت دستی فیش واریزی</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Pending Payment Box (Card-to-Card Details) */}
               {paymentStatus === "PENDING" && (
                 <div className="glass-panel rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
@@ -791,84 +767,86 @@ export default function CardPaymentPage() {
                         </div>
                       </div>
 
-                      {/* Luxury 3D Iranian Bank Card Mockup */}
-                      <Card3D maxTilt={6} glareEffect={true} className="rounded-3xl shadow-2xl">
-                        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-tr from-slate-950 via-slate-900 to-teal-950 p-6 sm:p-7 text-white border border-slate-800">
-                          {/* Shimmer / Glow effects */}
-                          <div className="absolute -right-16 -top-16 w-48 h-48 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
-                          <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+                      {/* Luxury 3D Iranian Bank Card Mockup with Ambient Glow */}
+                      <GlowOverlay variant="teal" intensity="normal" className="w-full">
+                        <Card3D maxTilt={6} glareEffect={true} className="rounded-3xl shadow-2xl">
+                          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-tr from-slate-950 via-slate-900 to-teal-950 p-6 sm:p-7 text-white border border-slate-800">
+                            {/* Shimmer / Glow effects */}
+                            <div className="absolute -right-16 -top-16 w-48 h-48 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+                            <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-                          {/* Card Top: Bank & Chip */}
-                          <div className="flex items-center justify-between relative z-10 mb-6">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300">
-                                <ShieldCheck className="w-5 h-5" />
+                            {/* Card Top: Bank & Chip */}
+                            <div className="flex items-center justify-between relative z-10 mb-6">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300">
+                                  <ShieldCheck className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <span className="text-xs font-bold text-white block">
+                                    {detectedBankName}
+                                  </span>
+                                  <span className="text-[9.5px] text-teal-300/80">شبکه تبادل اطلاعات بانکی (شتاب)</span>
+                                </div>
                               </div>
-                              <div>
-                                <span className="text-xs font-bold text-white block">
-                                  {detectedBankName}
+
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-10 h-7 rounded-md bg-gradient-to-tr from-amber-300 to-amber-500 shadow-inner flex items-center justify-center opacity-90">
+                                  <div className="w-7 h-5 border border-amber-800/40 rounded-sm grid grid-cols-2 gap-0.5 opacity-60" />
+                                </div>
+                                <span className="text-xs tracking-widest text-slate-400 font-mono font-bold">
+                                  SHETAB
                                 </span>
-                                <span className="text-[9.5px] text-teal-300/80">شبکه تبادل اطلاعات بانکی (شتاب)</span>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-10 h-7 rounded-md bg-gradient-to-tr from-amber-300 to-amber-500 shadow-inner flex items-center justify-center opacity-90">
-                                <div className="w-7 h-5 border border-amber-800/40 rounded-sm grid grid-cols-2 gap-0.5 opacity-60" />
+                            {/* Card Number & 1-Click Copy */}
+                            <div className="my-6 relative z-10 space-y-2">
+                              <span className="text-[10.5px] text-slate-400 block font-medium">
+                                شماره کارت ۱۶ رقمی مقصد جهت واریز
+                              </span>
+
+                              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-sm">
+                                <span className="font-mono text-lg sm:text-2xl font-black tracking-widest text-amber-300 dir-ltr select-all">
+                                  {formattedDestCard}
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopy(rawDestCard.replace(/\D/g, ""), "cardNum")}
+                                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 shrink-0 cursor-pointer"
+                                >
+                                  {copiedField === "cardNum" ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
+                                      <span>کپی شد!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy className="w-3.5 h-3.5" />
+                                      <span>کپی شماره کارت</span>
+                                    </>
+                                  )}
+                                </button>
                               </div>
-                              <span className="text-xs tracking-widest text-slate-400 font-mono font-bold">
-                                SHETAB
+                            </div>
+
+                            {/* Card Bottom: Owner Name */}
+                            <div className="flex items-end justify-between relative z-10 pt-2 text-xs">
+                              <div>
+                                <span className="text-[10px] text-slate-400 block mb-0.5">صاحب حساب مقصد</span>
+                                <span className="font-bold text-white tracking-wide text-sm flex items-center gap-1.5">
+                                  <span>{paymentData.destCardOwner || "رضا بابایی - ارزان اکانت"}</span>
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+                                </span>
+                              </div>
+
+                              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                                تایید شده شاپرک
                               </span>
                             </div>
                           </div>
-
-                          {/* Card Number & 1-Click Copy */}
-                          <div className="my-6 relative z-10 space-y-2">
-                            <span className="text-[10.5px] text-slate-400 block font-medium">
-                              شماره کارت ۱۶ رقمی مقصد جهت واریز
-                            </span>
-
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-sm">
-                              <span className="font-mono text-lg sm:text-2xl font-black tracking-widest text-amber-300 dir-ltr select-all">
-                                {formattedDestCard}
-                              </span>
-
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(rawDestCard.replace(/\D/g, ""), "cardNum")}
-                                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 shrink-0 cursor-pointer"
-                              >
-                                {copiedField === "cardNum" ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
-                                    <span>کپی شد!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    <span>کپی شماره کارت</span>
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Card Bottom: Owner Name */}
-                          <div className="flex items-end justify-between relative z-10 pt-2 text-xs">
-                            <div>
-                              <span className="text-[10px] text-slate-400 block mb-0.5">صاحب حساب مقصد</span>
-                              <span className="font-bold text-white tracking-wide text-sm flex items-center gap-1.5">
-                                <span>{paymentData.destCardOwner || "رضا بابایی - ارزان اکانت"}</span>
-                                <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
-                              </span>
-                            </div>
-
-                            <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-                              تایید شده شاپرک
-                            </span>
-                          </div>
-                        </div>
-                      </Card3D>
+                        </Card3D>
+                      </GlowOverlay>
 
                       {/* Live Auto-Polling Radar Banner */}
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 text-xs text-teal-800 dark:text-teal-300">

@@ -76,10 +76,10 @@ export default function CartPage() {
 
   const finalTotalToman = Math.max(0, subtotalToman - discountToman);
 
-  const handleApplyCoupon = (e: React.FormEvent) => {
+  const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponCode.trim()) return;
-    const res = applyCoupon(couponCode);
+    const res = await applyCoupon(couponCode);
     setCouponFeedback(res);
   };
 
@@ -472,6 +472,29 @@ export default function CartPage() {
           </div>
         )}
       </main>
+
+      {/* Sticky Mobile Cart Bar (sits above MobileBottomNav on mobile) */}
+      {cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-16 sm:bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-2.5 sm:py-3 shadow-2xl flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] text-slate-400 block">جمع قابل پرداخت:</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-base font-black text-brand-dark dark:text-white font-mono truncate">
+                {formatPrice(finalTotalToman)}
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium">تومان</span>
+            </div>
+          </div>
+
+          <Link
+            href="/checkout"
+            className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-black text-xs py-2.5 px-4 rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0"
+          >
+            <span>تسویه حساب</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
 
       <Footer />
     </div>

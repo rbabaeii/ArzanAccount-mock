@@ -38,6 +38,8 @@ import {
   Undo2,
   Tag,
   CreditCard,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 interface NavItem {
@@ -62,7 +64,28 @@ export default function AdminLayout({
   const { settings, isLoadingSync, syncWithIrMarket, orders } = useStore();
   const { user, isAuthenticated, isAdmin, isLoading: isAuthLoading, logout, openLoginModal } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [syncToast, setSyncToast] = useState(false);
+
+  // Restore collapsed state from localStorage
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem("admin_sidebar_collapsed");
+      if (saved !== null) {
+        setIsCollapsed(saved === "true");
+      }
+    } catch {}
+  }, []);
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("admin_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const handleSync = async () => {
     await syncWithIrMarket();
@@ -378,31 +401,54 @@ export default function AdminLayout({
         />
       )}
 
-      {/* Sidebar (HypeStore Teal Horizon Theme) - Fixed full height */}
+      {/* Sidebar (HypeStore Teal Horizon Theme) - Fixed full height, Collapsible on Desktop */}
       <aside
-        className={`fixed inset-y-0 right-0 z-50 h-screen w-72 bg-gradient-to-b from-teal-950 to-brand-primary text-white flex flex-col justify-between p-5 transition-transform duration-300 shadow-2xl ${
+        className={`fixed inset-y-0 right-0 z-50 h-screen bg-gradient-to-b from-teal-950 to-brand-primary text-white flex flex-col justify-between transition-all duration-300 shadow-2xl ${
           isSidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
-        }`}
+        } ${isCollapsed ? "w-72 md:w-20 p-3" : "w-72 p-5"}`}
       >
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none pr-1">
-          {/* Logo & Brand */}
-          <div className="flex items-center gap-3 pb-5 border-b border-white/10 shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-white text-brand-primary flex items-center justify-center font-black text-xl shadow-md">
-              ار
+          {/* Logo & Brand & Collapse Toggle */}
+          <div
+            className={`flex items-center pb-4 border-b border-white/10 shrink-0 ${
+              isCollapsed ? "justify-center md:flex-col gap-2" : "justify-between"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white text-brand-primary flex items-center justify-center font-black text-xl shadow-md shrink-0">
+                ار
+              </div>
+              {!isCollapsed && (
+                <div className="min-w-0">
+                  <h2 className="font-black text-sm tracking-tight truncate">HypeStore Control Center</h2>
+                  <span className="text-[10px] text-teal-300 font-medium truncate block">پنل مدیریت ارزان اکانت</span>
+                </div>
+              )}
             </div>
-            <div>
-              <h2 className="font-black text-sm tracking-tight">HypeStore Control Center</h2>
-              <span className="text-[10px] text-teal-300 font-medium">پنل مدیریت ارزان اکانت</span>
-            </div>
+
+            {/* Desktop Collapse/Expand Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="hidden md:flex p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-teal-200 hover:text-white transition-all cursor-pointer shrink-0"
+              title={isCollapsed ? "باز کردن منوی کناری" : "جمع کردن منوی کناری"}
+              aria-label={isCollapsed ? "باز کردن منوی کناری" : "جمع کردن منوی کناری"}
+            >
+              {isCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            </button>
           </div>
 
           {/* Navigation Links */}
-          <nav className="mt-5 space-y-4 text-xs">
+          <nav className="mt-4 space-y-4 text-xs">
             {catalogNavGroups.map((group, gIdx) => (
               <div key={gIdx} className="space-y-1">
-                <span className="text-[10px] font-bold text-teal-300/80 px-3 tracking-wider block mb-1.5 uppercase">
-                  {group.groupTitle}
-                </span>
+                {!isCollapsed ? (
+                  <span className="text-[10px] font-bold text-teal-300/80 px-3 tracking-wider block mb-1.5 uppercase">
+                    {group.groupTitle}
+                  </span>
+                ) : (
+                  <div className="my-2 border-t border-white/10" />
+                )}
                 {group.items.map((item) => {
                   const isActive = pathname === item.href;
                   return (
@@ -410,17 +456,22 @@ export default function AdminLayout({
                       key={item.href}
                       href={item.href}
                       onClick={() => setIsSidebarOpen(false)}
-                      className={`group flex items-center justify-between gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+                      title={item.title}
+                      className={`group flex items-center gap-2 rounded-xl font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+                        isCollapsed ? "justify-center p-2.5" : "justify-between px-3 py-2"
+                      } ${
                         isActive
                           ? "bg-gradient-to-r from-teal-500/30 to-emerald-500/20 text-white shadow-sm border border-teal-400/40 font-bold backdrop-blur-xs"
                           : "text-teal-100 hover:bg-white/10 hover:text-white"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="shrink-0 text-teal-300 group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
-                        <span className="truncate text-xs">{item.title}</span>
+                      <div className={`flex items-center gap-2.5 min-w-0 ${isCollapsed ? "justify-center" : ""}`}>
+                        <span className="shrink-0 text-teal-300 group-hover:scale-110 transition-transform duration-200">
+                          {item.icon}
+                        </span>
+                        {!isCollapsed && <span className="truncate text-xs">{item.title}</span>}
                       </div>
-                      {item.badge && (
+                      {!isCollapsed && item.badge && (
                         <span
                           className={`shrink-0 whitespace-nowrap text-[10px] font-bold px-2 py-0.5 rounded-full font-sans leading-none shadow-xs transition-transform duration-200 group-hover:scale-105 ${
                             item.badgeColor || "bg-white/20 text-white"
@@ -428,6 +479,9 @@ export default function AdminLayout({
                         >
                           {item.badge}
                         </span>
+                      )}
+                      {isCollapsed && item.badge && (
+                        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title={item.badge} />
                       )}
                     </NextLink>
                   );
@@ -440,50 +494,79 @@ export default function AdminLayout({
         {/* Sidebar Footer Info & Current Admin Profile */}
         <div className="pt-4 border-t border-white/10 space-y-3 shrink-0">
           {/* Admin Profile Card */}
-          <div className="bg-white/10 p-3 rounded-xl border border-white/10 flex items-center justify-between">
-            <NextLink href="/profile" className="flex items-center gap-2.5 overflow-hidden hover:opacity-80 transition-opacity">
+          <div
+            className={`bg-white/10 rounded-xl border border-white/10 flex items-center ${
+              isCollapsed ? "flex-col p-2 gap-2" : "justify-between p-3"
+            }`}
+          >
+            <NextLink
+              href="/profile"
+              className="flex items-center gap-2.5 overflow-hidden hover:opacity-80 transition-opacity"
+              title="پروفایل من"
+            >
               <div className="w-8 h-8 rounded-lg bg-teal-400 text-teal-950 font-black text-xs flex items-center justify-center shrink-0">
                 {user?.name ? user.name.slice(0, 1) : <Shield className="w-4 h-4" />}
               </div>
-              <div className="truncate text-right">
-                <div className="text-xs font-bold text-white truncate">{user?.name || user?.phone}</div>
-                <div className="text-[10px] text-teal-300 font-semibold">{getRoleBadge(user?.role)}</div>
-              </div>
+              {!isCollapsed && (
+                <div className="truncate text-right">
+                  <div className="text-xs font-bold text-white truncate">{user?.name || user?.phone}</div>
+                  <div className="text-[10px] text-teal-300 font-semibold">{getRoleBadge(user?.role)}</div>
+                </div>
+              )}
             </NextLink>
             <button
               onClick={logout}
               title="خروج از حساب مدیریت"
-              className="p-1.5 text-teal-300 hover:text-rose-400 hover:bg-white/10 rounded-lg transition-colors"
+              className="p-1.5 text-teal-300 hover:text-rose-400 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="bg-white/10 p-3 rounded-xl border border-white/10">
-            <div className="flex items-center justify-between text-[11px] text-teal-200">
-              <span className="flex items-center gap-1">
-                <Wallet className="w-3.5 h-3.5 text-brand-accent" />
-                موجودی irMarket
+          {/* irMarket Balance Card */}
+          {!isCollapsed ? (
+            <div className="bg-white/10 p-3 rounded-xl border border-white/10">
+              <div className="flex items-center justify-between text-[11px] text-teal-200">
+                <span className="flex items-center gap-1">
+                  <Wallet className="w-3.5 h-3.5 text-brand-accent" />
+                  موجودی irMarket
+                </span>
+                <span className="font-mono font-bold text-white">${settings.walletBalanceUsd}</span>
+              </div>
+              <span className="text-[10px] text-teal-300 block mt-1">
+                معادل: {walletToman} تومان
               </span>
-              <span className="font-mono font-bold text-white">${settings.walletBalanceUsd}</span>
             </div>
-            <span className="text-[10px] text-teal-300 block mt-1">
-              معادل: {walletToman} تومان
-            </span>
-          </div>
+          ) : (
+            <div
+              className="bg-white/10 p-2 rounded-xl border border-white/10 text-center"
+              title={`موجودی irMarket: $${settings.walletBalanceUsd} (${walletToman} تومان)`}
+            >
+              <Wallet className="w-4 h-4 mx-auto text-brand-accent" />
+            </div>
+          )}
 
+          {/* Storefront Link */}
           <NextLink
             href="/"
-            className="flex items-center justify-center gap-2 w-full py-2 px-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors"
+            title="مشاهده ویترین فروشگاه"
+            className={`flex items-center justify-center gap-2 w-full py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors ${
+              isCollapsed ? "px-1.5" : "px-3"
+            }`}
           >
-            <span>مشاهده ویترین فروشگاه</span>
-            <ExternalLink className="w-3.5 h-3.5" />
+            {!isCollapsed && <span>مشاهده ویترین فروشگاه</span>}
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
           </NextLink>
         </div>
       </aside>
 
       {/* Desktop spacer for fixed sidebar width */}
-      <div className="hidden md:block w-72 shrink-0" aria-hidden="true" />
+      <div
+        className={`hidden md:block shrink-0 transition-all duration-300 ${
+          isCollapsed ? "w-20" : "w-72"
+        }`}
+        aria-hidden="true"
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">

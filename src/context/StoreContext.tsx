@@ -70,7 +70,7 @@ interface StoreContextType {
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  applyCoupon: (code: string) => { success: boolean; message: string };
+  applyCoupon: (code: string) => Promise<{ success: boolean; message: string }>,
   removeCoupon: () => void;
 
   createOrder: (orderData: Omit<Order, "id" | "orderNumber" | "createdAt"> & { orderNumber?: string; id?: string }) => Order;
@@ -787,28 +787,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAppliedCoupon(null);
   };
 
-  const applyCoupon = (code: string) => {
+  const applyCoupon = async (code: string) => {
     const cleanCode = code.trim().toUpperCase();
-    const found = coupons.find((c) => c.code.toUpperCase() === cleanCode && c.isActive);
-
-    if (!found) {
-      return { success: false, message: "کد تخفیف وارد شده معتبر نیست یا منقضی شده است." };
-    }
-
-    // Category restriction check
-    if (found.categoryId && found.categoryId !== "all") {
-      const eligibleItem = cart.some((item) => item.product.categoryId === found.categoryId);
-      if (!eligibleItem) {
-        const catName = categories.find((c) => c.id === found.categoryId)?.title || "دسته‌بندی خاص";
-        return {
-          success: false,
-          message: `این کد تخفیف اختصاصی است و تنها برای محصولات دسته «${catName}» معتبر می‌باشد.`,
-        };
+    // Call backend validation endpoint
+    try {
+      const res = await api.validateCoupon(cleanCode);
+      if (res && res.success && res.coupon) {
+        setAppliedCoupon(res.coupon);
+        return { success: true, message: `کد تخفیف %${res.coupon.discountPercent} با موفقیت اعمال شد.` };
       }
+      return { success: false, message: res?.message || "کد تخفیف نامعتبر است." };
+    } catch (err: any) {
+      console.error("Coupon validation error:", err);
+      return { success: false, message: err?.message || "خطا در اعتبارسنجی کد تخفیف." };
     }
-
-    setAppliedCoupon(found);
-    return { success: true, message: `کد تخفیف %${found.discountPercent} با موفقیت اعمال شد.` };
   };
 
   const removeCoupon = () => {

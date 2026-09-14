@@ -20,29 +20,25 @@ export default function OtpInput({
 }: OtpInputProps) {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Split value into array of digits
-  const digits = useMemoDigits(value, length);
-
-  function useMemoDigits(val: string, len: number) {
-    const raw = toEnglishDigits(val || "").replace(/\D/g, "");
-    const arr: string[] = [];
-    for (let i = 0; i < len; i++) {
-      arr.push(raw[i] || "");
-    }
-    return arr;
-  }
+  // Split value into array of digits of exact size length
+  const cleanVal = toEnglishDigits(value || "").replace(/\D/g, "").slice(0, length);
+  const digits = Array.from({ length }, (_, i) => cleanVal[i] || "");
 
   // Auto focus first empty input on mount
   useEffect(() => {
-    if (!disabled && inputRefs.current[0]) {
-      inputRefs.current[0].focus();
+    if (!disabled) {
+      const firstEmptyIndex = digits.findIndex((d) => !d);
+      const targetIdx = firstEmptyIndex === -1 ? 0 : firstEmptyIndex;
+      inputRefs.current[targetIdx]?.focus();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabled]);
 
   const handleChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const char = toEnglishDigits(e.target.value).replace(/\D/g, "");
-    if (!char) {
-      // Clear current digit
+    const rawEntered = toEnglishDigits(e.target.value).replace(/\D/g, "");
+
+    // If input was cleared or empty
+    if (!rawEntered) {
       const nextDigits = [...digits];
       nextDigits[index] = "";
       const nextVal = nextDigits.join("");
@@ -50,8 +46,20 @@ export default function OtpInput({
       return;
     }
 
-    // Take the last character typed
-    const singleDigit = char.slice(-1);
+    // Handle multi-character paste / mobile SMS autofill
+    if (rawEntered.length > 1) {
+      const fullPasted = rawEntered.slice(0, length);
+      onChange(fullPasted);
+      const nextFocus = Math.min(fullPasted.length, length - 1);
+      inputRefs.current[nextFocus]?.focus();
+      if (fullPasted.length === length) {
+        onComplete?.(fullPasted);
+      }
+      return;
+    }
+
+    // Single digit input
+    const singleDigit = rawEntered.slice(-1);
     const nextDigits = [...digits];
     nextDigits[index] = singleDigit;
     const nextVal = nextDigits.join("");
@@ -67,27 +75,39 @@ export default function OtpInput({
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Backspace") {
+      e.preventDefault();
       if (!digits[index] && index > 0) {
-        // Move back and clear
+        // Move back to previous box and clear it
         inputRefs.current[index - 1]?.focus();
         const nextDigits = [...digits];
         nextDigits[index - 1] = "";
         onChange(nextDigits.join(""));
       } else {
+        // Clear current box and stay focused
         const nextDigits = [...digits];
         nextDigits[index] = "";
         onChange(nextDigits.join(""));
       }
     } else if (e.key === "ArrowLeft") {
-      if (index < length - 1) inputRefs.current[index + 1]?.focus();
+      // In LTR: Left arrow moves focus to the left (lower index)
+      e.preventDefault();
+      if (index > 0) {
+        inputRefs.current[index - 1]?.focus();
+      }
     } else if (e.key === "ArrowRight") {
-      if (index > 0) inputRefs.current[index - 1]?.focus();
+      // In LTR: Right arrow moves focus to the right (higher index)
+      e.preventDefault();
+      if (index < length - 1) {
+        inputRefs.current[index + 1]?.focus();
+      }
     }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pastedData = toEnglishDigits(e.clipboardData.getData("text")).replace(/\D/g, "").slice(0, length);
+    const pastedData = toEnglishDigits(e.clipboardData.getData("text"))
+      .replace(/\D/g, "")
+      .slice(0, length);
     if (!pastedData) return;
 
     onChange(pastedData);
@@ -110,6 +130,7 @@ export default function OtpInput({
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
+          autoComplete={idx === 0 ? "one-time-code" : "off"}
           maxLength={1}
           value={digit}
           disabled={disabled}

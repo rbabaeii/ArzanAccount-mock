@@ -32,9 +32,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
-import { formatPrice, formatNumber } from "@/lib/format";
+import { formatPrice, formatNumber, toEnglishDigits } from "@/lib/format";
 import AmbientGlow from "@/components/ui/AmbientGlow";
 import Card3D from "@/components/ui/Card3D";
+import AnimatedStepper from "@/components/ui/AnimatedStepper";
 
 interface AccountSlot {
   key: string;
@@ -185,23 +186,64 @@ export default function CheckoutPage() {
   }, 0);
 
   let discountToman = 0;
-  if (appliedCoupon && subtotalToman >= appliedCoupon.minOrderToman) {
-    const rawDiscount = (subtotalToman * appliedCoupon.discountPercent) / 100;
-    discountToman = Math.min(rawDiscount, appliedCoupon.maxDiscountToman);
+  if (appliedCoupon) {
+    let eligibleSubtotal = subtotalToman;
+    if (appliedCoupon.categoryId && appliedCoupon.categoryId !== "all") {
+      eligibleSubtotal = cart
+        .filter((item) => item.product.categoryId === appliedCoupon.categoryId)
+        .reduce((acc, item) => {
+          const p = calculateProductPrice(item.product);
+          const itemTotal = p.isPerThousand
+            ? Math.round((p.toman * item.quantity) / 1000)
+            : p.toman * item.quantity;
+          return acc + itemTotal;
+        }, 0);
+    }
+
+    if (eligibleSubtotal >= appliedCoupon.minOrderToman) {
+      const rawDiscount = (eligibleSubtotal * appliedCoupon.discountPercent) / 100;
+      discountToman = Math.min(rawDiscount, appliedCoupon.maxDiscountToman);
+    }
   }
 
   const finalTotalToman = Math.max(0, subtotalToman - discountToman);
 
-  const handleCompleteOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim() || !phone.trim() || !agreed) return;
+  const handleCompleteOrder = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    const cleanName = name.trim();
+    const cleanEmail = email.trim();
+    const cleanPhone = toEnglishDigits(phone).trim();
+
+    if (!cleanName) {
+      setStockError("لطفاً نام و نام خانوادگی خود را وارد نمایید.");
+      return;
+    }
+    if (!cleanPhone || !/^09\d{9}$/.test(cleanPhone)) {
+      setStockError("شماره موبایل باید با ۰۹ شروع شده و ۱۱ رقم باشد (مانند 09120000000).");
+      return;
+    }
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setStockError("لطفاً یک آدرس ایمیل معتبر جهت ارسال فاکتور و لایسنس وارد نمایید.");
+      return;
+    }
+    if (!agreed) {
+      setStockError("لطفاً قوانین و شرایط خرید، حفظ محرمانگی و ضمانت سلامت اکانت را تایید نمایید.");
+      return;
+    }
 
     // Validate multi-quantity account credentials
     for (const slot of requiredAccountSlots) {
       const cred = accountCredentialsMap[slot.key];
-      if (slot.requiresEmail && (!cred?.email || !cred.email.trim())) {
-        setStockError(`لطفاً ایمیل «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}» را وارد نمایید.`);
-        return;
+      if (slot.requiresEmail) {
+        if (!cred?.email || !cred.email.trim()) {
+          setStockError(`لطفاً ایمیل «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}» را وارد نمایید.`);
+          return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cred.email.trim())) {
+          setStockError(`فرمت ایمیل «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}» نامعتبر است.`);
+          return;
+        }
       }
       if (slot.requiresPassword && (!cred?.password || !cred.password.trim())) {
         setStockError(`لطفاً رمز عبور «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}» را وارد نمایید.`);
@@ -434,47 +476,7 @@ export default function CheckoutPage() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 pb-32 sm:pb-20 relative z-10">
         {/* Stepper Progress Indicator */}
-        <div className="max-w-3xl mx-auto mb-10">
-          <div className="flex items-center justify-between text-xs font-bold">
-            {/* Step 1: Cart */}
-            <div className="flex flex-col items-center gap-1.5 text-teal-600 dark:text-teal-400">
-              <div className="w-9 h-9 rounded-2xl bg-teal-500/20 border-2 border-teal-500 flex items-center justify-center text-teal-700 dark:text-teal-300 shadow-sm">
-                <Check className="w-4 h-4 stroke-[3]" />
-              </div>
-              <span className="text-[11px] sm:text-xs">۱. سبد خرید</span>
-            </div>
-
-            <div className="flex-1 h-0.5 bg-teal-500/60 mx-2 sm:mx-3 -mt-5" />
-
-            {/* Step 2: Information (Active) */}
-            <div className="flex flex-col items-center gap-1.5 text-amber-600 dark:text-amber-400">
-              <div className="w-9 h-9 rounded-2xl bg-amber-500/20 border-2 border-amber-500 flex items-center justify-center text-amber-600 dark:text-amber-300 shadow-md ring-4 ring-amber-500/10 animate-pulse">
-                <User className="w-4 h-4" />
-              </div>
-              <span className="text-[11px] sm:text-xs font-black">۲. مشخصات سفارش</span>
-            </div>
-
-            <div className="flex-1 h-0.5 bg-slate-200 dark:bg-slate-800 mx-2 sm:mx-3 -mt-5" />
-
-            {/* Step 3: Payment */}
-            <div className="flex flex-col items-center gap-1.5 text-slate-400 dark:text-slate-600">
-              <div className="w-9 h-9 rounded-2xl bg-slate-100 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 flex items-center justify-center text-slate-400">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <span className="text-[11px] sm:text-xs">۳. پرداخت کارت‌به‌کارت</span>
-            </div>
-
-            <div className="flex-1 h-0.5 bg-slate-200 dark:bg-slate-800 mx-2 sm:mx-3 -mt-5" />
-
-            {/* Step 4: Delivery */}
-            <div className="flex flex-col items-center gap-1.5 text-slate-400 dark:text-slate-600">
-              <div className="w-9 h-9 rounded-2xl bg-slate-100 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-800 flex items-center justify-center text-slate-400">
-                <Zap className="w-4 h-4" />
-              </div>
-              <span className="text-[11px] sm:text-xs">۴. تحویل لایسنس</span>
-            </div>
-          </div>
-        </div>
+        <AnimatedStepper currentStep={2} className="mb-10" />
 
         {/* Stock or Submission Error Alert */}
         {stockError && (
@@ -930,6 +932,38 @@ export default function CheckoutPage() {
           </div>
         </form>
       </main>
+
+      {/* Sticky Mobile Checkout Bar (sits above MobileBottomNav on mobile) */}
+      <div className="lg:hidden fixed bottom-16 sm:bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 px-4 py-2.5 sm:py-3 shadow-2xl flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[10px] text-slate-400 block">مبلغ نهایی پرداخت:</span>
+          <div className="flex items-baseline gap-1">
+            <span className="text-base font-black text-brand-dark dark:text-white font-mono truncate">
+              {formatPrice(finalTotalToman)}
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium">تومان</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => handleCompleteOrder()}
+          disabled={isSubmitting || !agreed}
+          className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-500 text-slate-950 font-black text-xs py-2.5 px-4 rounded-xl shadow-md transition-all flex items-center gap-1.5 disabled:opacity-50 shrink-0 cursor-pointer"
+        >
+          {isSubmitting ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <span>استعلام انبار...</span>
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>پرداخت کارت‌به‌کارت ➔</span>
+            </>
+          )}
+        </button>
+      </div>
 
       <Footer />
     </div>

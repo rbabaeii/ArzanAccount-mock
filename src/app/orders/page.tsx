@@ -6,6 +6,7 @@ import Header from "@/components/store/Header";
 import Footer from "@/components/store/Footer";
 import { useStore } from "@/context/StoreContext";
 import { formatPrice, formatNumber } from "@/lib/format";
+import { api } from "@/lib/api";
 import {
   PackageCheck,
   Package,
@@ -24,6 +25,7 @@ import {
   ShieldCheck,
   Zap,
   ArrowRight,
+  RefreshCw,
   Eye,
   EyeOff,
   Filter,
@@ -36,6 +38,7 @@ import CardPaymentModal from "@/components/payment/CardPaymentModal";
 import { Order } from "@/types";
 import AmbientGlow from "@/components/ui/AmbientGlow";
 import Card3D from "@/components/ui/Card3D";
+import OrderCard from "@/components/ui/OrderCard";
 import { BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 
 function OrderTrackingContent() {
@@ -44,17 +47,63 @@ function OrderTrackingContent() {
   const { orders } = useStore();
 
   const [query, setQuery] = useState(initialId);
+  const [remoteOrder, setRemoteOrder] = useState<Order | null>(null);
+  const [isSearchingRemote, setIsSearchingRemote] = useState(false);
+  const [remoteSearchError, setRemoteSearchError] = useState<string | null>(null);
+
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [refundModalOrder, setRefundModalOrder] = useState<Order | null>(null);
   const [invoiceModalOrder, setInvoiceModalOrder] = useState<Order | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState<boolean>(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  const handleSearchSubmit = async (targetQuery?: string) => {
+    const q = (targetQuery !== undefined ? targetQuery : query).trim();
+    if (!q) return;
+
+    const clean = q.toLowerCase();
+    const local = orders.find(
+      (o) =>
+        o.orderNumber.toLowerCase() === clean ||
+        o.orderNumber.toLowerCase().replace(/[^a-z0-9]/g, "") === clean.replace(/[^a-z0-9]/g, "") ||
+        o.customerEmail.toLowerCase() === clean ||
+        (o.customerPhone && o.customerPhone.includes(clean))
+    );
+
+    if (local) {
+      setRemoteOrder(null);
+      setRemoteSearchError(null);
+      return;
+    }
+
+    // Try fetching from backend API
+    setIsSearchingRemote(true);
+    setRemoteSearchError(null);
+    try {
+      const res = await api.getOrderById(q);
+      if (res && res.orderNumber) {
+        setRemoteOrder(res);
+      } else {
+        setRemoteOrder(null);
+        setRemoteSearchError(`سفارشی با شناسه یا مشخصات «${q}» در سرور یافت نشد.`);
+      }
+    } catch (err: any) {
+      setRemoteOrder(null);
+      setRemoteSearchError(err?.message || `سفارشی با شناسه «${q}» یافت نشد.`);
+    } finally {
+      setIsSearchingRemote(false);
+    }
+  };
+
   useEffect(() => {
-    if (initialId) setQuery(initialId);
+    if (initialId) {
+      setQuery(initialId);
+      handleSearchSubmit(initialId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialId]);
 
-  const searchedOrder = useMemo(() => {
+  const localMatch = useMemo(() => {
     if (!query.trim()) return null;
     const cleanQuery = query.trim().toLowerCase();
     return orders.find(
@@ -65,6 +114,33 @@ function OrderTrackingContent() {
         (o.customerPhone && o.customerPhone.includes(cleanQuery))
     );
   }, [orders, query]);
+
+  const activeOrder = localMatch || remoteOrder;
+
+  const parsedItems: any[] = useMemo(() => {
+    if (!activeOrder?.items) return [];
+    if (typeof activeOrder.items === "string") {
+      try {
+        return JSON.parse(activeOrder.items);
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(activeOrder.items) ? activeOrder.items : [];
+  }, [activeOrder?.items]);
+
+  const parsedDeliveredAccounts: string[] = useMemo(() => {
+    if (!activeOrder?.deliveredAccounts) return [];
+    if (typeof activeOrder.deliveredAccounts === "string") {
+      try {
+        const parsed = JSON.parse(activeOrder.deliveredAccounts);
+        return Array.isArray(parsed) ? parsed : [activeOrder.deliveredAccounts];
+      } catch {
+        return [activeOrder.deliveredAccounts];
+      }
+    }
+    return Array.isArray(activeOrder.deliveredAccounts) ? activeOrder.deliveredAccounts : [];
+  }, [activeOrder?.deliveredAccounts]);
 
   const filteredOrders = useMemo(() => {
     if (statusFilter === "all") return orders;
@@ -121,6 +197,7 @@ function OrderTrackingContent() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                handleSearchSubmit();
               }}
               className="flex flex-col sm:flex-row gap-2.5 max-w-md mx-auto pt-2"
             >
@@ -136,63 +213,81 @@ function OrderTrackingContent() {
               </div>
               <button
                 type="submit"
-                className="h-12 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold px-6 rounded-2xl shadow-md hover:shadow-lg hover:shadow-teal-500/25 active:scale-95 transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5"
+                disabled={isSearchingRemote}
+                className="h-12 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold px-6 rounded-2xl shadow-md hover:shadow-lg hover:shadow-teal-500/25 active:scale-95 transition-all shrink-0 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
-                <span>رهگیری</span>
-                <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                {isSearchingRemote ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>در حال استعلام...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>رهگیری</span>
+                    <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                  </>
+                )}
               </button>
             </form>
           </div>
         </Card3D>
 
+        {/* Remote Search Error Alert */}
+        {remoteSearchError && (
+          <div className="max-w-2xl mx-auto p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <span>{remoteSearchError}</span>
+          </div>
+        )}
+
         {/* Found Order Card */}
-        {searchedOrder ? (
+        {activeOrder ? (
           <div className="glass-panel rounded-3xl p-6 sm:p-8 shadow-card border border-brand-border/90 dark:border-slate-700/80 space-y-6 animate-fadeIn">
             {/* Header info */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-brand-border/60 dark:border-slate-800 gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="text-xl font-black text-brand-dark dark:text-white font-mono">
-                    #{searchedOrder.orderNumber}
+                    #{activeOrder.orderNumber}
                   </span>
 
-                  {searchedOrder.status === "delivered" && (
+                  {activeOrder.status === "delivered" && (
                     <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                       <span>تحویل داده شده</span>
                     </span>
                   )}
-                  {searchedOrder.status === "processing" && (
+                  {activeOrder.status === "processing" && (
                     <span className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-amber-500 animate-spin" />
                       <span>در حال آماده‌سازی و پردازش</span>
                     </span>
                   )}
-                  {searchedOrder.status === "refund_requested" && (
+                  {activeOrder.status === "refund_requested" && (
                     <span className="bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
                       <Clock className="w-4 h-4 text-amber-500" />
                       <span>درخواست عودت وجه در صف بررسی</span>
                     </span>
                   )}
-                  {searchedOrder.status === "refunded" && (
+                  {activeOrder.status === "refunded" && (
                     <span className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-purple-500" />
                       <span>وجه سفارش مسترد گردید</span>
                     </span>
                   )}
-                  {searchedOrder.status === "pending" && (
+                  {activeOrder.status === "pending" && (
                     <span className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 animate-pulse">
                       <CreditCard className="w-4 h-4 text-amber-500" />
                       <span>در انتظار پرداخت کارت‌به‌کارت</span>
                     </span>
                   )}
-                  {searchedOrder.status === "failed" && (
+                  {activeOrder.status === "failed" && (
                     <span className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
                       <AlertCircle className="w-4 h-4 text-rose-500" />
                       <span>ناموفق یا منقضی شده</span>
                     </span>
                   )}
-                  {searchedOrder.status === "cancelled" && (
+                  {activeOrder.status === "cancelled" && (
                     <span className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
                       <AlertCircle className="w-4 h-4 text-rose-500" />
                       <span>سفارش لغو شده</span>
@@ -200,18 +295,18 @@ function OrderTrackingContent() {
                   )}
                 </div>
 
-                {searchedOrder.refundRejectionReason && (
+                {activeOrder.refundRejectionReason && (
                   <div className="mt-3 text-xs bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3 text-rose-700 dark:text-rose-300">
                     <div className="font-bold flex items-center gap-1.5 mb-1">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       <span>عدم تایید عودت وجه توسط کارشناس مالی:</span>
                     </div>
-                    <p className="opacity-90 leading-relaxed">{searchedOrder.refundRejectionReason}</p>
+                    <p className="opacity-90 leading-relaxed">{activeOrder.refundRejectionReason}</p>
                   </div>
                 )}
 
                 <span className="text-xs text-brand-muted dark:text-slate-400 block mt-2">
-                  ثبت شده در: {toPersianDateTime(searchedOrder.createdAt)} | خریدار: {searchedOrder.customerEmail}
+                  ثبت شده در: {toPersianDateTime(activeOrder.createdAt)} | خریدار: {activeOrder.customerEmail}
                 </span>
               </div>
 
@@ -220,7 +315,7 @@ function OrderTrackingContent() {
                 <div>
                   <span className="text-xs text-brand-muted dark:text-slate-400 block">مبلغ کل سفارش:</span>
                   <span className="text-xl sm:text-2xl font-black text-brand-dark dark:text-white font-mono">
-                    {formatPrice(searchedOrder.totalPriceToman)} تومان
+                    {formatPrice(activeOrder.totalPriceToman)} تومان
                   </span>
                 </div>
 
@@ -228,7 +323,7 @@ function OrderTrackingContent() {
                   {/* Official Invoice Modal Trigger */}
                   <button
                     type="button"
-                    onClick={() => setInvoiceModalOrder(searchedOrder)}
+                    onClick={() => setInvoiceModalOrder(activeOrder)}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
                     title="چاپ فاکتور رسمی / PDF"
                   >
@@ -236,9 +331,9 @@ function OrderTrackingContent() {
                     <span>فاکتور رسمی</span>
                   </button>
 
-                  {searchedOrder.status === "pending" && (
+                  {activeOrder.status === "pending" && (
                     <Link
-                      href={`/payment/card/${searchedOrder.orderNumber}`}
+                      href={`/payment/card/${activeOrder.orderNumber}`}
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer"
                     >
                       <CreditCard className="w-4 h-4" />
@@ -246,10 +341,10 @@ function OrderTrackingContent() {
                     </Link>
                   )}
 
-                  {(searchedOrder.status === "delivered" || searchedOrder.status === "processing") && (
+                  {(activeOrder.status === "delivered" || activeOrder.status === "processing") && (
                     <button
                       type="button"
-                      onClick={() => setRefundModalOrder(searchedOrder)}
+                      onClick={() => setRefundModalOrder(activeOrder)}
                       className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-500/10 text-rose-700 dark:text-rose-400 hover:bg-rose-500/20 text-xs font-bold transition-all cursor-pointer"
                     >
                       <Undo2 className="w-3.5 h-3.5" />
@@ -261,7 +356,7 @@ function OrderTrackingContent() {
             </div>
 
             {/* Delivered Credentials / License Box */}
-            {searchedOrder.deliveredAccounts && searchedOrder.deliveredAccounts.length > 0 ? (
+            {parsedDeliveredAccounts.length > 0 ? (
               <div className="bg-teal-500/10 border-2 border-teal-500/30 rounded-2xl p-5 sm:p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-teal-900 dark:text-teal-200 font-bold text-xs sm:text-sm">
@@ -274,7 +369,7 @@ function OrderTrackingContent() {
                 </div>
 
                 <div className="space-y-3">
-                  {searchedOrder.deliveredAccounts.map((accountText, idx) => (
+                  {parsedDeliveredAccounts.map((accountText, idx) => (
                     <div
                       key={idx}
                       className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-teal-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs"
@@ -307,7 +402,7 @@ function OrderTrackingContent() {
                   راهنما: اطلاعات لایسنس فوق را جهت ورود در نرم‌افزار مربوطه وارد فرمایید. در صورت هرگونه سوال، تیم پشتیبانی تلگرام آماده همراهی شماست.
                 </p>
               </div>
-            ) : searchedOrder.status === "processing" ? (
+            ) : activeOrder.status === "processing" ? (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-3">
                 <Clock className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 animate-spin" />
                 <div className="space-y-1">
@@ -323,19 +418,21 @@ function OrderTrackingContent() {
             <div>
               <h3 className="font-bold text-xs text-brand-dark dark:text-white mb-3">اقلام خریداری شده:</h3>
               <div className="divide-y divide-brand-border/60 dark:divide-slate-800 border border-brand-border/70 dark:border-slate-800 rounded-2xl overflow-hidden">
-                {searchedOrder.items.map((item, idx) => (
+                {parsedItems.map((item: any, idx: number) => (
                   <div
                     key={idx}
                     className="p-4 bg-slate-50/70 dark:bg-slate-850/60 text-slate-800 dark:text-slate-100 flex justify-between items-center text-xs"
                   >
                     <div>
-                      <span className="font-bold text-brand-dark dark:text-white block">{item.productTitle}</span>
+                      <span className="font-bold text-brand-dark dark:text-white block">
+                        {item.productTitle || item.title || "محصول خریداری شده"}
+                      </span>
                       <span className="text-[11px] text-brand-muted dark:text-slate-400 mt-0.5 block">
-                        تعداد: {item.quantity} عدد
+                        تعداد: {item.quantity || 1} عدد
                       </span>
                     </div>
                     <span className="font-mono font-bold text-brand-dark dark:text-white text-sm">
-                      {formatPrice(item.priceToman * item.quantity)} تومان
+                      {formatPrice((item.priceToman || 0) * (item.quantity || 1))} تومان
                     </span>
                   </div>
                 ))}
@@ -393,7 +490,10 @@ function OrderTrackingContent() {
               {filteredOrders.slice(0, 8).map((o) => (
                 <div
                   key={o.id}
-                  onClick={() => setQuery(o.orderNumber)}
+                  onClick={() => {
+                    setQuery(o.orderNumber);
+                    handleSearchSubmit(o.orderNumber);
+                  }}
                   className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-teal-500/5 px-3 rounded-2xl transition-colors"
                 >
                   <div>
@@ -406,7 +506,8 @@ function OrderTrackingContent() {
                       </span>
                     </div>
                     <span className="text-xs text-brand-dark dark:text-white font-bold block mt-1">
-                      {o.items[0]?.productTitle} {o.items.length > 1 && `(+${o.items.length - 1} مورد دیگر)`}
+                      {Array.isArray(o.items) && o.items[0]?.productTitle ? o.items[0].productTitle : "سفارش ثبت‌شده"}
+                      {Array.isArray(o.items) && o.items.length > 1 && ` (+${o.items.length - 1} مورد دیگر)`}
                     </span>
                   </div>
 
@@ -445,15 +546,15 @@ function OrderTrackingContent() {
         />
 
         {/* Card Payment Modal fallback */}
-        {isCardModalOpen && searchedOrder && (
+        {isCardModalOpen && activeOrder && (
           <CardPaymentModal
             isOpen={isCardModalOpen}
             onClose={() => setIsCardModalOpen(false)}
-            amountToman={searchedOrder.totalPriceToman}
-            orderNumber={searchedOrder.orderNumber}
-            orderId={searchedOrder.id}
-            customerName={searchedOrder.customerEmail}
-            customerPhone={searchedOrder.customerPhone || undefined}
+            amountToman={activeOrder.totalPriceToman}
+            orderNumber={activeOrder.orderNumber}
+            orderId={activeOrder.id}
+            customerName={activeOrder.customerEmail}
+            customerPhone={activeOrder.customerPhone || undefined}
             paymentType="ORDER"
             onSuccess={() => {
               setIsCardModalOpen(false);

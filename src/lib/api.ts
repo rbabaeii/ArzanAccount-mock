@@ -651,6 +651,12 @@ export const api = {
     }),
 
   // CartBeCart Card-to-Card Payment API
+  // Validate coupon code
+  validateCoupon: (code: string) =>
+    request<any>("/coupons/validate", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    }),
   initiateCardPayment: (data: {
     amountToman: number;
     paymentType: "ORDER" | "WALLET_TOPUP";
