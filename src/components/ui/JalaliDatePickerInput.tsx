@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Clock } from "lucide-react";
+import TimePickerInput from "./TimePickerInput";
 
 declare global {
   interface Window {
@@ -34,11 +35,11 @@ interface JalaliDatePickerInputProps {
 export default function JalaliDatePickerInput({
   value,
   onChange,
-  placeholder = "۱۴۰۳/۰۱/۰۱",
+  placeholder,
   minDate,
   maxDate,
   onlyTime = false,
-  onlyDate = true,
+  onlyDate,
   hasSecond = false,
   mode = "single",
   className = "",
@@ -47,6 +48,24 @@ export default function JalaliDatePickerInput({
   id,
   name,
 }: JalaliDatePickerInputProps) {
+  // If time picker mode requested, delegate to custom minimal TimePickerInput
+  if (onlyTime) {
+    return (
+      <TimePickerInput
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className={className}
+        disabled={disabled}
+        required={required}
+        id={id}
+        name={name}
+      />
+    );
+  }
+
+  const isOnlyDate = onlyDate !== undefined ? onlyDate : true;
+  const defaultPlaceholder = placeholder || "۱۴۰۳/۰۱/۰۱";
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -108,13 +127,13 @@ export default function JalaliDatePickerInput({
         data-jdp=""
         data-jdp-min-date={minDate}
         data-jdp-max-date={maxDate}
-        data-jdp-only-date={onlyDate ? "true" : undefined}
+        data-jdp-only-date={isOnlyDate ? "true" : undefined}
         data-jdp-only-time={onlyTime ? "true" : undefined}
         data-jdp-has-second={hasSecond ? "true" : "false"}
         data-jdp-mode={mode}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={defaultPlaceholder}
         disabled={disabled}
         required={required}
         dir="ltr"
@@ -126,7 +145,7 @@ export default function JalaliDatePickerInput({
         onClick={handleIconClick}
         className="absolute right-3 text-neutral-400 dark:text-slate-500 hover:text-brand-primary dark:hover:text-teal-400 transition-colors"
       >
-        <Calendar className="w-4 h-4" />
+        {onlyTime ? <Clock className="w-4 h-4" /> : <Calendar className="w-4 h-4" />}
       </button>
     </div>
   );

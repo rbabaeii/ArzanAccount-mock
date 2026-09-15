@@ -22,6 +22,8 @@ import {
   ArrowLeft,
   ChevronRight,
 } from "lucide-react";
+import JalaliDatePickerInput from "@/components/ui/JalaliDatePickerInput";
+import ReceiptUploader from "@/components/payment/ReceiptUploader";
 
 interface CardPaymentModalProps {
   isOpen: boolean;
@@ -73,7 +75,8 @@ export default function CardPaymentModal({
   // Manual Form States
   const [trackingCode, setTrackingCode] = useState("");
   const [userCardNumber, setUserCardNumber] = useState("");
-  const [depositTime, setDepositTime] = useState("");
+  const [depositDate, setDepositDate] = useState("");
+  const [depositHour, setDepositHour] = useState("");
   const [userNote, setUserNote] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -275,6 +278,8 @@ export default function CardPaymentModal({
     setManualError(null);
 
     try {
+      const formattedDepositTime = [depositDate.trim(), depositHour.trim()].filter(Boolean).join(" - ");
+
       const res = await api.submitManualReceipt({
         paymentToken: paymentData?.paymentToken,
         amountToman: paymentData?.uniqueAmountToman || amountToman,
@@ -285,7 +290,7 @@ export default function CardPaymentModal({
         trackingCode: toEnglishDigits(trackingCode.trim()),
         userCardNumber: userCardNumber ? toEnglishDigits(userCardNumber.trim()) : undefined,
         receiptUrl: receiptUrl || undefined,
-        depositTime: depositTime || new Date().toLocaleTimeString("fa-IR"),
+        depositTime: formattedDepositTime || undefined,
         userNote: userNote.trim() || undefined,
       });
 
@@ -301,21 +306,6 @@ export default function CardPaymentModal({
       setManualError(err?.message || "خطا در ثبت فیش واریزی. لطفاً دقایقی دیگر تلاش کنید.");
     } finally {
       setIsSubmittingManual(false);
-    }
-  };
-
-  // Test Simulation Helper
-  const handleSimulatePayment = async () => {
-    if (!paymentData?.paymentToken) return;
-    try {
-      await api.simulateCardPaymentSuccess(paymentData.paymentToken);
-      setSuccessMessage("واریز تستی کارت‌به‌کارت با موفقیت شبیه‌سازی و تأیید گردید!");
-      setStep("SUCCESS");
-      setTimeout(() => {
-        onSuccess({ status: "PAID", paymentToken: paymentData.paymentToken });
-      }, 2000);
-    } catch (simErr: any) {
-      alert("خطا در شبیه‌سازی پرداخت: " + simErr?.message);
     }
   };
 
@@ -442,9 +432,17 @@ export default function CardPaymentModal({
                 <div className="my-3">
                   <span className="text-[10px] text-slate-400 block mb-1">شماره کارت مقصد</span>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-lg sm:text-xl font-black tracking-widest dir-ltr text-amber-300">
-                      {formattedDestCard}
-                    </span>
+                    <div
+                      dir="ltr"
+                      style={{ direction: "ltr" }}
+                      className="font-mono text-lg sm:text-xl font-black text-amber-300 flex flex-row items-center gap-2 dir-ltr"
+                    >
+                      {formattedDestCard.split(" ").map((chunk, idx) => (
+                        <span key={idx} dir="ltr" style={{ direction: "ltr" }} className="tracking-widest select-all">
+                          {chunk}
+                        </span>
+                      ))}
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleCopy(rawDestCard.replace(/\D/g, ""), "card")}
@@ -517,22 +515,7 @@ export default function CardPaymentModal({
                   className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-transparent hover:border-teal-300 dark:hover:border-teal-700"
                 >
                   <FileText className="w-4 h-4" />
-                  <span>مشکلی در تایید خودکار دارید؟ ثبت دستی فیش واریزی</span>
-                </button>
-
-                {/* Developer Simulation Trigger (Only for simulated tokens in dev mode) */}
-                {paymentData?.paymentToken?.startsWith("SIM-") &&
-                  process.env.NODE_ENV !== "production" && (
-                    <div className="pt-2 text-center">
-                      <button
-                        type="button"
-                        onClick={handleSimulatePayment}
-                        className="text-[10px] text-slate-400 hover:text-teal-500 underline transition-colors"
-                      >
-                        [شبیه‌ساز تستی واریز خودکار - ویژه محیط توسعه]
-                      </button>
-                    </div>
-                  )}
+                  </button>
               </div>
             </>
           )}
@@ -595,39 +578,44 @@ export default function CardPaymentModal({
                 />
               </div>
 
+              {/* Deposit Date & Time (Jalali) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1 text-xs">
+                  <label className="block font-bold text-slate-800 dark:text-slate-200">
+                    تاریخ واریز فیش (تقویم شمسی):
+                  </label>
+                  <JalaliDatePickerInput
+                    value={depositDate}
+                    onChange={setDepositDate}
+                    placeholder="انتخاب تاریخ واریز شمسی..."
+                    maxDate="today"
+                  />
+                </div>
+
+                <div className="space-y-1 text-xs">
+                  <label className="block font-bold text-slate-800 dark:text-slate-200">
+                    ساعت واریز فیش:
+                  </label>
+                  <JalaliDatePickerInput
+                    onlyTime={true}
+                    value={depositHour}
+                    onChange={setDepositHour}
+                    placeholder="انتخاب یا درج ساعت (مثال: ۱۴:۳۰)..."
+                  />
+                </div>
+              </div>
+
               {/* Receipt File Upload */}
               <div className="space-y-1 text-xs">
                 <label className="block font-bold text-slate-800 dark:text-slate-200">
                   تصویر فیش یا اسکرین‌شات رسید انتقال:
                 </label>
-                <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-400 rounded-2xl p-4 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-slate-800/40">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  />
-                  {isUploading ? (
-                    <div className="flex items-center justify-center gap-2 text-teal-600 dark:text-teal-400 font-bold text-xs py-2">
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>در حال بارگذاری تصویر فیش...</span>
-                    </div>
-                  ) : receiptUrl ? (
-                    <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs py-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>رسید با موفقیت پیوست گردید (کلیک برای تغییر)</span>
-                    </div>
-                  ) : (
-                    <div className="space-y-1 py-2">
-                      <UploadCloud className="w-6 h-6 text-slate-400 mx-auto" />
-                      <p className="font-bold text-slate-700 dark:text-slate-300 text-xs">
-                        کلیک کنید یا تصویر رسید را به اینجا بکشید
-                      </p>
-                      <span className="text-[10px] text-slate-400">فرمت‌های مجاز: JPG, PNG (حداکثر ۵ مگابایت)</span>
-                    </div>
-                  )}
-                </div>
-                {uploadError && <p className="text-[11px] text-rose-500">{uploadError}</p>}
+                <ReceiptUploader
+                  value={receiptUrl}
+                  onChange={setReceiptUrl}
+                  isUploading={isUploading}
+                  setIsUploading={setIsUploading}
+                />
               </div>
 
               {/* User Note */}

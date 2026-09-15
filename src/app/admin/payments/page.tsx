@@ -17,6 +17,7 @@ import {
   Settings,
   ShieldCheck,
   AlertCircle,
+  AlertTriangle,
   X,
   Check,
   Copy,
@@ -57,6 +58,18 @@ export default function AdminPaymentsPage() {
     fallbackCardNumber: string;
     fallbackCardOwner: string;
     fallbackBankName: string;
+    liveStatus?: {
+      connected: boolean;
+      shopName?: string;
+      plan?: string;
+      subscriptionActive?: boolean;
+      apiAccess?: boolean;
+      orderTtlMinutes?: number;
+      graceMinutes?: number;
+      hasActiveDefaultCard?: boolean;
+      quota?: { used: number; limit: number; period_ends_at: string };
+      error?: string;
+    };
   }>({
     apiKey: "",
     hasApiKey: false,
@@ -432,6 +445,7 @@ export default function AdminPaymentsPage() {
             { id: "APPROVED", label: "تأیید شده ادمین" },
             { id: "PENDING", label: "در انتظار واریز" },
             { id: "REJECTED", label: "رد شده" },
+            { id: "EXPIRED", label: "منقضی شده" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -810,6 +824,59 @@ export default function AdminPaymentsPage() {
             </div>
 
             <form onSubmit={handleSaveSettings} className="space-y-4 text-xs">
+              {/* Live Connection & Subscription Status Banner */}
+              {settingsData.liveStatus?.connected ? (
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-teal-500/10 to-emerald-500/10 border border-teal-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className="font-bold text-teal-900 dark:text-teal-200">
+                        متصل به CartBeCart: {settingsData.liveStatus.shopName || "فروشگاه"}
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-700 dark:text-teal-300 uppercase">
+                      {settingsData.liveStatus.plan}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                      <span>اشتراک:</span>
+                      <span className={settingsData.liveStatus.subscriptionActive ? "text-emerald-600 font-bold" : "text-rose-500 font-bold"}>
+                        {settingsData.liveStatus.subscriptionActive ? "فعال" : "غیرفعال"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                      <span>مصرف سهمیه ماه:</span>
+                      <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
+                        {settingsData.liveStatus.quota?.used ?? 0} / {settingsData.liveStatus.quota?.limit ?? 500}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Default Card Status Warning or Check */}
+                  {!settingsData.liveStatus.hasActiveDefaultCard ? (
+                    <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                      <div>
+                        <strong className="block font-bold">هشدار: کارت پیش‌فرض در پنل CartBeCart تنظیم نشده است!</strong>
+                        برای کارکرد کامل درگاه، لطفاً وارد داشبورد <a href="https://www.cartbecart.com/dashboard" target="_blank" rel="noreferrer" className="underline font-bold">cartbecart.com</a> شده و حداقل یک کارت بانکی را به عنوان پیش‌فرض فعال فرمایید.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 text-[11px] flex items-center gap-1.5 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      <span>کارت بانکی پیش‌فرض فعال است و آماده تخصیص مبالغ یکتا می‌باشد.</span>
+                    </div>
+                  )}
+                </div>
+              ) : settingsData.hasApiKey ? (
+                <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>در حال بررسی اتصال با وب‌سرویس CartBeCart...</span>
+                </div>
+              ) : null}
+
               {/* Active Toggle */}
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
                 <div>

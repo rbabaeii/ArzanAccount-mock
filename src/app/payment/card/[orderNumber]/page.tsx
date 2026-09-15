@@ -42,6 +42,8 @@ import AmbientGlow from "@/components/ui/AmbientGlow";
 import Card3D from "@/components/ui/Card3D";
 import AnimatedStepper from "@/components/ui/AnimatedStepper";
 import GlowOverlay from "@/components/ui/GlowOverlay";
+import JalaliDatePickerInput from "@/components/ui/JalaliDatePickerInput";
+import ReceiptUploader from "@/components/payment/ReceiptUploader";
 
 export default function CardPaymentPage() {
   const params = useParams();
@@ -91,7 +93,8 @@ export default function CardPaymentPage() {
   // Manual Form States
   const [trackingCode, setTrackingCode] = useState("");
   const [userCardNumber, setUserCardNumber] = useState("");
-  const [depositTime, setDepositTime] = useState("");
+  const [depositDate, setDepositDate] = useState("");
+  const [depositHour, setDepositHour] = useState("");
   const [userNote, setUserNote] = useState("");
   const [receiptUrl, setReceiptUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -99,9 +102,6 @@ export default function CardPaymentPage() {
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSuccessMsg, setManualSuccessMsg] = useState<string | null>(null);
-
-  // Simulation state
-  const [isSimulating, setIsSimulating] = useState(false);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -316,6 +316,8 @@ export default function CardPaymentPage() {
     setManualSuccessMsg(null);
 
     try {
+      const formattedDepositTime = [depositDate.trim(), depositHour.trim()].filter(Boolean).join(" - ");
+
       const res = await api.submitManualReceipt({
         paymentToken: paymentData?.paymentToken,
         amountToman: paymentData?.uniqueAmountToman || order?.totalPriceToman || 0,
@@ -325,10 +327,17 @@ export default function CardPaymentPage() {
         userId: user?.id,
         trackingCode: trackingCode.trim(),
         userCardNumber: userCardNumber.trim() || undefined,
-        depositTime: depositTime.trim() || undefined,
+        depositTime: formattedDepositTime || undefined,
         receiptUrl: receiptUrl || undefined,
         userNote: userNote.trim() || undefined,
       });
+
+      if (res?.paymentToken || res?.payment?.paymentToken) {
+        setPaymentData((prev: any) => ({
+          ...prev,
+          paymentToken: res.paymentToken || res.payment?.paymentToken,
+        }));
+      }
 
       setPaymentStatus("MANUAL_REVIEW");
       setManualSuccessMsg(
@@ -340,24 +349,6 @@ export default function CardPaymentPage() {
       setManualError(err?.message || "خطا در ثبت فیش. لطفاً دوباره تلاش نمایید.");
     } finally {
       setIsSubmittingManual(false);
-    }
-  };
-
-  // Simulate success for demo / dev
-  const handleSimulatePayment = async () => {
-    if (!paymentData?.paymentToken) return;
-    setIsSimulating(true);
-    try {
-      await api.simulateCardPaymentSuccess(paymentData.paymentToken);
-      const res = await api.checkCardPaymentStatus(paymentData.paymentToken);
-      setPaymentStatus("PAID");
-      setSuccessInfo(res);
-      const freshOrder = await api.getOrderById(orderNumber);
-      if (freshOrder) setOrder(freshOrder);
-    } catch (err: any) {
-      console.error("Simulate error:", err);
-    } finally {
-      setIsSimulating(false);
     }
   };
 
@@ -806,9 +797,17 @@ export default function CardPaymentPage() {
                               </span>
 
                               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-sm">
-                                <span className="font-mono text-lg sm:text-2xl font-black tracking-widest text-amber-300 dir-ltr select-all">
-                                  {formattedDestCard}
-                                </span>
+                                <div
+                                  dir="ltr"
+                                  style={{ direction: "ltr" }}
+                                  className="font-mono text-lg sm:text-2xl font-black text-amber-300 select-all flex flex-row items-center gap-2 sm:gap-3.5 dir-ltr"
+                                >
+                                  {formattedDestCard.split(" ").map((chunk, idx) => (
+                                    <span key={idx} dir="ltr" style={{ direction: "ltr" }} className="tracking-widest select-all">
+                                      {chunk}
+                                    </span>
+                                  ))}
+                                </div>
 
                                 <button
                                   type="button"
@@ -877,20 +876,6 @@ export default function CardPaymentPage() {
                           <span>پیامک بانکی دیر ارسال شده یا مشکلی در انتقال پیش آمد؟ ثبت دستی فیش</span>
                         </button>
                       </div>
-
-                      {/* Developer Simulation Trigger (Test environment) */}
-                      <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={handleSimulatePayment}
-                          disabled={isSimulating}
-                          className="text-[11px] text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 flex items-center gap-1 transition-colors cursor-pointer"
-                          title="شبیه‌سازی دریافت پیامک بانکی در محیط تست"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>{isSimulating ? "در حال تایید تستی..." : "تست سریع: شبیه‌سازی واریز موفق"}</span>
-                        </button>
-                      </div>
                     </div>
                   )}
 
@@ -939,43 +924,40 @@ export default function CardPaymentPage() {
 
                         <div>
                           <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1.5">
-                            زمان دقیق واریز
+                            تاریخ واریز فیش (تقویم شمسی)
                           </label>
-                          <input
-                            type="text"
-                            value={depositTime}
-                            onChange={(e) => setDepositTime(e.target.value)}
-                            placeholder="مثال: ۱۴:۳۵ امروز"
-                            className="w-full h-11 px-3.5 rounded-xl border border-brand-border dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:border-teal-500 outline-none"
+                          <JalaliDatePickerInput
+                            value={depositDate}
+                            onChange={setDepositDate}
+                            placeholder="انتخاب تاریخ واریز شمسی..."
+                            maxDate="today"
+                            className="h-11"
                           />
                         </div>
 
                         <div>
                           <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+                            ساعت واریز فیش (ساعت : دقیقه)
+                          </label>
+                          <JalaliDatePickerInput
+                            onlyTime={true}
+                            value={depositHour}
+                            onChange={setDepositHour}
+                            placeholder="انتخاب یا درج ساعت (مثال: ۱۴:۳۰)..."
+                            className="h-11"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block font-bold text-slate-700 dark:text-slate-200 mb-1.5">
                             تصویر فیش یا اسکرین‌شات واریز
                           </label>
-                          <div className="relative">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleFileUpload}
-                              disabled={isUploading}
-                              className="w-full text-xs text-slate-500 file:mr-0 file:ml-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-500/10 file:text-teal-700 dark:file:text-teal-300 hover:file:bg-teal-500/20 cursor-pointer"
-                            />
-                            {isUploading && (
-                              <RefreshCw className="w-4 h-4 animate-spin text-teal-600 absolute left-2 top-2.5" />
-                            )}
-                          </div>
-                          {receiptUrl && (
-                            <span className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-bold block mt-1">
-                              ✓ تصویر فیش با موفقیت پیوست شد
-                            </span>
-                          )}
-                          {uploadError && (
-                            <span className="text-[10.5px] text-rose-600 font-medium block mt-1">
-                              {uploadError}
-                            </span>
-                          )}
+                          <ReceiptUploader
+                            value={receiptUrl}
+                            onChange={setReceiptUrl}
+                            isUploading={isUploading}
+                            setIsUploading={setIsUploading}
+                          />
                         </div>
                       </div>
 

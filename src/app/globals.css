@@ -44,6 +44,25 @@ jdp-container {
   }
 }
 
+.dir-ltr {
+  direction: ltr !important;
+  text-align: left;
+}
+
+.dir-rtl {
+  direction: rtl !important;
+  text-align: right;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 /* Hide scrollbars completely on elements with no-scrollbar or scrollbar-none */
 .no-scrollbar::-webkit-scrollbar,
 .scrollbar-none::-webkit-scrollbar {
