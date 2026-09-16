@@ -28,49 +28,10 @@ import {
   Tag,
   FileText,
   BookOpen,
-  MessageSquare,
-  Send,
-  ThumbsUp,
   Check,
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
-
-interface ReviewItem {
-  id: string;
-  author: string;
-  rating: number;
-  date: string;
-  comment: string;
-  verified: boolean;
-}
-
-const defaultReviews: ReviewItem[] = [
-  {
-    id: "rev-1",
-    author: "محمد رضایی",
-    rating: 5,
-    date: "۳ روز پیش",
-    comment: "سرویس دقیقاً ظرف ۲ دقیقه به ایمیلم ارسال شد و اکانت کاملاً اختصاصی و بدون قطعی کار می‌کنه. پشتیبانی تلگرامشون هم سریع پاسخ داد.",
-    verified: true,
-  },
-  {
-    id: "rev-2",
-    author: "سارا کریمی",
-    rating: 5,
-    date: "هفته گذشته",
-    comment: "قیمت نسبت به بقیه سایت‌ها واقعاً منصفانه‌تر بود. به راحتی روی لپتاپ و گوشیم فعالش کردم. ممنون از ارزان اکانت.",
-    verified: true,
-  },
-  {
-    id: "rev-3",
-    author: "علی حسینی",
-    rating: 4,
-    date: "۲ هفته پیش",
-    comment: "کیفیت اکانت عالیه و سرعت تحویل هم خوب بود. فقط کاش راهنمای متنی داخل ایمیل یکم بیشتر توضیح داده می‌شد.",
-    verified: true,
-  },
-];
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -85,16 +46,8 @@ export default function ProductDetailPage() {
   const [liveSyncMessage, setLiveSyncMessage] = useState<string | null>(null);
   const [apiRelated, setApiRelated] = useState<any[] | null>(null);
 
-  // Tabs state: "specs" | "guide" | "reviews"
-  const [activeTab, setActiveTab] = useState<"specs" | "guide" | "reviews">("specs");
-
-  // Review submission state
-  const [userReviews, setUserReviews] = useState<ReviewItem[]>(defaultReviews);
-  const [newReviewAuthor, setNewReviewAuthor] = useState("");
-  const [newReviewRating, setNewReviewRating] = useState(5);
-  const [newReviewComment, setNewReviewComment] = useState("");
-  const [reviewSubmittedToast, setReviewSubmittedToast] = useState(false);
-  const [showReviewForm, setShowReviewForm] = useState(false);
+  // Tabs state: "specs" | "guide"
+  const [activeTab, setActiveTab] = useState<"specs" | "guide">("specs");
 
   useEffect(() => {
     if (!productId) return;
@@ -256,27 +209,6 @@ export default function ProductDetailPage() {
     router.push("/cart");
   };
 
-  const handleReviewSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newReviewAuthor.trim() || !newReviewComment.trim()) return;
-
-    const newRev: ReviewItem = {
-      id: `rev-${Date.now()}`,
-      author: newReviewAuthor.trim(),
-      rating: newReviewRating,
-      date: "هم‌اکنون",
-      comment: newReviewComment.trim(),
-      verified: true,
-    };
-
-    setUserReviews([newRev, ...userReviews]);
-    setNewReviewAuthor("");
-    setNewReviewComment("");
-    setShowReviewForm(false);
-    setReviewSubmittedToast(true);
-    setTimeout(() => setReviewSubmittedToast(false), 4000);
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-brand-surfaceDim dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors relative overflow-x-hidden">
       {/* Dynamic Background Ambient Glows */}
@@ -419,7 +351,6 @@ export default function ProductDetailPage() {
                   <div className="flex items-center gap-1.5 text-xs text-amber-500 font-bold bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-xl border border-amber-200 dark:border-amber-800/60 shadow-2xs">
                     <Star className="w-3.5 h-3.5 fill-amber-400" />
                     <span>{product.rating ?? 4.9} از ۵</span>
-                    <span className="text-neutral-400 dark:text-slate-500 text-[10.5px]">({product.reviewCount ?? 15} نظر خریداران)</span>
                   </div>
                 </div>
 
@@ -504,19 +435,6 @@ export default function ProductDetailPage() {
                   <BookOpen className="w-4 h-4" />
                   <span>راهنما و شرایط تحویل</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("reviews")}
-                  className={`flex items-center gap-2 py-3.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
-                    activeTab === "reviews"
-                      ? "border-teal-500 text-teal-600 dark:text-teal-400 bg-white/80 dark:bg-slate-800/80 rounded-t-xl shadow-2xs"
-                      : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>نظرات خریداران ({userReviews.length})</span>
-                </button>
               </div>
 
               {/* Tab Content Body */}
@@ -578,143 +496,6 @@ export default function ProductDetailPage() {
                       <li>جهت حفظ گارانتی، از تغییر پسورد و مشخصات اصلی اکانت‌های اشتراکی خودداری فرمایید.</li>
                       <li>پشتیبانی تخصصی ارزان اکانت در تمامی روزهای هفته از طریق تلگرام آماده رفع مشکلات احتمالی کاربران گرامی می‌باشد.</li>
                     </ul>
-                  </div>
-                )}
-
-                {/* Tab 3: Reviews & Rating System */}
-                {activeTab === "reviews" && (
-                  <div className="space-y-6">
-                    {/* Rating Overview Bar */}
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl sm:text-4xl font-black text-amber-500 font-mono">
-                          {product.rating ?? 4.9}
-                        </span>
-                        <div>
-                          <div className="flex items-center gap-0.5 text-amber-400">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                              <Star key={i} className="w-4 h-4 fill-amber-400" />
-                            ))}
-                          </div>
-                          <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
-                            بر اساس {userReviews.length} تجربه ثبت‌شده خریداران
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setShowReviewForm(!showReviewForm)}
-                        className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-xs active:scale-95"
-                      >
-                        {showReviewForm ? "بستن فرم نظر" : "ثبت نظر یا تجربه خرید"}
-                      </button>
-                    </div>
-
-                    {/* Review Form Drawer */}
-                    {showReviewForm && (
-                      <form
-                        onSubmit={handleReviewSubmit}
-                        className="p-4 rounded-2xl border border-teal-200 dark:border-teal-800/80 bg-teal-50/40 dark:bg-slate-800/80 space-y-3 animate-in fade-in duration-200 text-xs"
-                      >
-                        <h4 className="font-bold text-slate-800 dark:text-white">ارسال دیدگاه جدید:</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-slate-700 dark:text-slate-300 mb-1">نام شما:</label>
-                            <input
-                              type="text"
-                              required
-                              value={newReviewAuthor}
-                              onChange={(e) => setNewReviewAuthor(e.target.value)}
-                              placeholder="مثلاً رضا علوی"
-                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs outline-none focus:ring-1 focus:ring-teal-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-slate-700 dark:text-slate-300 mb-1">امتیاز شما:</label>
-                            <div className="flex items-center gap-2 pt-1.5">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                  key={star}
-                                  type="button"
-                                  onClick={() => setNewReviewRating(star)}
-                                  className="cursor-pointer transition-transform hover:scale-125"
-                                >
-                                  <Star
-                                    className={`w-5 h-5 ${
-                                      star <= newReviewRating ? "fill-amber-400 text-amber-500" : "text-slate-300"
-                                    }`}
-                                  />
-                                </button>
-                              ))}
-                              <span className="font-mono font-bold text-xs text-slate-700 dark:text-slate-300 mr-2">
-                                {newReviewRating} از ۵
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-slate-700 dark:text-slate-300 mb-1">متن نظر:</label>
-                          <textarea
-                            required
-                            rows={3}
-                            value={newReviewComment}
-                            onChange={(e) => setNewReviewComment(e.target.value)}
-                            placeholder="تجربه خود از کیفیت اکانت و سرعت تحویل را با دیگران به اشتراک بگذارید..."
-                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs outline-none focus:ring-1 focus:ring-teal-500"
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold text-xs px-5 py-2 rounded-xl shadow-xs hover:shadow-md active:scale-95 transition-all flex items-center gap-1.5"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          <span>ارسال نظر</span>
-                        </button>
-                      </form>
-                    )}
-
-                    {reviewSubmittedToast && (
-                      <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
-                        <Check className="w-4 h-4" />
-                        <span>نظر شما با موفقیت ثبت گردید و نمایش داده شد. متشکریم!</span>
-                      </div>
-                    )}
-
-                    {/* Reviews List */}
-                    <div className="space-y-3">
-                      {userReviews.map((rev) => (
-                        <div
-                          key={rev.id}
-                          className="p-4 rounded-2xl bg-white/70 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 space-y-2"
-                        >
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-brand-dark dark:text-white">{rev.author}</span>
-                              {rev.verified && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">
-                                  <CheckCircle className="w-2.5 h-2.5" />
-                                  خریدار تایید‌شده
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-slate-400 text-[11px]">
-                              <span>{rev.date}</span>
-                              <div className="flex items-center gap-0.5 text-amber-400">
-                                {[...Array(rev.rating)].map((_, i) => (
-                                  <Star key={i} className="w-3 h-3 fill-amber-400" />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-xs text-brand-muted dark:text-slate-300 leading-relaxed">
-                            {rev.comment}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 )}
               </div>
