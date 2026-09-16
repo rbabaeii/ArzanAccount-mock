@@ -110,7 +110,8 @@ export default function CardPaymentModal({
       setInitError(null);
       setTrackingCode("");
       setUserCardNumber("");
-      setDepositTime("");
+      setDepositDate("");
+      setDepositHour("");
       setUserNote("");
       setReceiptUrl("");
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);

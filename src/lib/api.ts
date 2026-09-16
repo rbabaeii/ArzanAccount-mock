@@ -515,9 +515,18 @@ export const api = {
   getUserWithdrawals: (userId: string) =>
     request<any[]>(`/users/${userId}/withdrawals`),
 
-  getAdminWithdrawals: (params?: { status?: string; limit?: number; offset?: number; role?: string }) => {
+  getAdminWithdrawals: (params?: {
+    status?: string;
+    userId?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+    role?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.status && params.status !== "all") q.set("status", params.status);
+    if (params?.userId) q.set("userId", params.userId);
+    if (params?.search) q.set("search", params.search);
     if (params?.limit) q.set("limit", String(params.limit));
     if (params?.offset) q.set("offset", String(params.offset));
     if (params?.role) q.set("role", params.role);
@@ -700,9 +709,27 @@ export const api = {
       method: "POST",
     }),
 
+  getUserCardPayments: (
+    userId: string,
+    params?: {
+      status?: string;
+      type?: string;
+      page?: number;
+      limit?: number;
+    }
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.append("status", params.status);
+    if (params?.type) query.append("type", params.type);
+    if (params?.page) query.append("page", String(params.page));
+    if (params?.limit) query.append("limit", String(params.limit));
+    return request<any>(`/cartbecart/user/${userId}?${query.toString()}`);
+  },
+
   getAdminCardPayments: (params?: {
     status?: string;
     type?: string;
+    userId?: string;
     search?: string;
     page?: number;
     limit?: number;
@@ -711,6 +738,7 @@ export const api = {
     const query = new URLSearchParams();
     if (params?.status) query.append("status", params.status);
     if (params?.type) query.append("type", params.type);
+    if (params?.userId) query.append("userId", params.userId);
     if (params?.search) query.append("search", params.search);
     if (params?.page) query.append("page", String(params.page));
     if (params?.limit) query.append("limit", String(params.limit));

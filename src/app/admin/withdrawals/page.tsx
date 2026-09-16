@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/lib/format";
@@ -26,6 +27,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Users,
 } from "lucide-react";
 
 export default function AdminWithdrawalsPage() {
@@ -34,6 +36,8 @@ export default function AdminWithdrawalsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [userIdFilter, setUserIdFilter] = useState<string>("");
+  const [userFilterName, setUserFilterName] = useState<string>("");
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Modals for processing
@@ -61,6 +65,8 @@ export default function AdminWithdrawalsPage() {
     try {
       const res = await api.getAdminWithdrawals({
         status: statusFilter !== "all" ? statusFilter : undefined,
+        userId: userIdFilter || undefined,
+        role: currentAdmin?.role || "SUPER_ADMIN",
       });
       if (res && Array.isArray(res.requests)) {
         setWithdrawals(res.requests);
@@ -71,7 +77,7 @@ export default function AdminWithdrawalsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, userIdFilter, currentAdmin?.role]);
 
   useEffect(() => {
     fetchWithdrawals();
@@ -174,14 +180,24 @@ export default function AdminWithdrawalsPage() {
             بررسی و واریز مبالغ تسویه کاربران با نظارت بر تفکیک واریزی‌های مستقیم و بونوس‌های خرید کش‌بک
           </p>
         </div>
-        <button
-          onClick={fetchWithdrawals}
-          disabled={isLoading}
-          className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-          <span>به‌روزرسانی لحظه‌ای</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/admin/payments"
+            className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 text-slate-700 dark:text-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
+          >
+            <CreditCard className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+            <span>مدیریت واریزی‌ها (کارت‌به‌کارت)</span>
+          </Link>
+
+          <button
+            onClick={fetchWithdrawals}
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-brand-primary text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-brand-primary/90 transition-colors shadow-xs cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            <span>به‌روزرسانی لحظه‌ای</span>
+          </button>
+        </div>
       </div>
 
       {/* Overview Stat Cards */}
@@ -265,7 +281,7 @@ export default function AdminWithdrawalsPage() {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 flex items-center gap-1.5 shrink-0 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer ${
                 statusFilter === tab.id
                   ? "bg-brand-primary text-white shadow-xs"
                   : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:text-black dark:hover:text-white"
@@ -285,16 +301,37 @@ export default function AdminWithdrawalsPage() {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative w-full md:w-72">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="جستجوی نام، تلفن، شبا یا کارت..."
-            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 pl-8 text-xs text-slate-800 dark:text-slate-100 outline-none"
-          />
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+        <div className="flex items-center gap-2.5 flex-wrap md:flex-nowrap">
+          {/* Active User Filter Badge */}
+          {userIdFilter && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-300 text-xs font-medium animate-in fade-in duration-200">
+              <Users className="w-3.5 h-3.5 text-brand-primary dark:text-teal-400" />
+              <span>فیلتر کاربر: <b>{userFilterName || userIdFilter}</b></span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserIdFilter("");
+                  setUserFilterName("");
+                }}
+                className="p-0.5 hover:bg-teal-200 dark:hover:bg-teal-900 rounded-full transition-colors mr-1 cursor-pointer"
+                title="حذف فیلتر کاربر"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Search */}
+          <div className="relative w-full md:w-72">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="جستجوی نام، تلفن، شبا یا کارت..."
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 pl-8 text-xs text-slate-800 dark:text-slate-100 outline-none"
+            />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          </div>
         </div>
       </div>
 
@@ -354,11 +391,35 @@ export default function AdminWithdrawalsPage() {
                             {req.user?.name ? req.user.name.slice(0, 1) : "ک"}
                           </div>
                           <div>
-                            <span className="font-bold text-slate-900 dark:text-white block">
-                              {req.user?.name || "کاربر ناشناس"}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="font-bold text-slate-900 dark:text-white block">
+                                {req.user?.name || "کاربر ناشناس"}
+                              </span>
+                              {req.user?.id && (
+                                <button
+                                  type="button"
+                                  title="فیلتر درخواست‌های این کاربر"
+                                  onClick={() => {
+                                    setUserIdFilter(req.user.id);
+                                    setUserFilterName(req.user.name || req.user.phone || req.user.id);
+                                  }}
+                                  className="p-0.5 hover:bg-teal-50 dark:hover:bg-teal-950/60 rounded text-slate-400 hover:text-brand-primary dark:hover:text-teal-400 transition-colors cursor-pointer"
+                                >
+                                  <Filter className="w-3 h-3" />
+                                </button>
+                              )}
+                              {req.user?.id && (
+                                <Link
+                                  href={`/admin/payments?search=${encodeURIComponent(req.user.phone || req.user.name || req.user.id)}`}
+                                  title="مشاهده واریزی‌های کارت‌به‌کارت این کاربر"
+                                  className="p-0.5 hover:bg-teal-50 dark:hover:bg-teal-950/60 rounded text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </Link>
+                              )}
+                            </div>
                             <span className="font-mono text-[11px] text-slate-400 dir-ltr text-right block">
-                              {req.user?.phone}
+                              {req.user?.phone || req.user?.email || "—"}
                             </span>
                           </div>
                         </div>

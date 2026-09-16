@@ -44,6 +44,11 @@ import {
   ArrowUpRight,
   TrendingUp,
   Users,
+  FileText,
+  Eye,
+  Filter,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Order } from "@/types";
 import { CustomerRefundModal } from "@/components/store/CustomerRefundModal";
@@ -108,6 +113,14 @@ export default function ProfilePage() {
   const [isSubmittingWithdraw, setIsSubmittingWithdraw] = useState(false);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
+
+  // User Deposits / Card Payments History State
+  const [deposits, setDeposits] = useState<any[]>([]);
+  const [isLoadingDeposits, setIsLoadingDeposits] = useState(false);
+  const [depositStatusFilter, setDepositStatusFilter] = useState<string>("all");
+  const [depositTypeFilter, setDepositTypeFilter] = useState<string>("all");
+  const [walletSubTab, setWalletSubTab] = useState<"deposits" | "withdrawals" | "all">("deposits");
+  const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
   // Referral Network State
   const [referralNetwork, setReferralNetwork] = useState<{
@@ -438,6 +451,32 @@ export default function ProfilePage() {
       fetchWithdrawals();
     }
   }, [user?.id, fetchWithdrawals]);
+
+  // Fetch user card payments / deposits
+  const fetchDeposits = useCallback(async () => {
+    if (!user?.id) return;
+    setIsLoadingDeposits(true);
+    try {
+      const res = await api.getUserCardPayments(user.id, {
+        status: depositStatusFilter,
+        type: depositTypeFilter,
+        limit: 50,
+      });
+      if (res && res.items) {
+        setDeposits(res.items);
+      }
+    } catch (err) {
+      console.error("Failed to load user deposits:", err);
+    } finally {
+      setIsLoadingDeposits(false);
+    }
+  }, [user?.id, depositStatusFilter, depositTypeFilter]);
+
+  useEffect(() => {
+    if (user?.id && activeTab === "wallet") {
+      fetchDeposits();
+    }
+  }, [user?.id, activeTab, fetchDeposits]);
 
   const hasPendingWithdrawal = withdrawals.some((w) => w.status === "PENDING");
   const pendingWithdrawal = withdrawals.find((w) => w.status === "PENDING");
@@ -1217,301 +1256,883 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Withdrawal Requests History */}
-            <div className="group relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-[#e2edf1] dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/30 transition-all duration-300 space-y-5 sm:space-y-6">
+            {/* Financial Transactions & Deposit / Withdrawal History Center */}
+            <div className="group relative overflow-hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-[#e2edf1] dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-card hover:shadow-xl hover:shadow-teal-500/5 hover:border-teal-400/30 transition-all duration-300 space-y-6">
               <div className="absolute -top-12 -right-12 w-28 h-28 bg-teal-500/10 rounded-full blur-2xl group-hover:scale-150 transition-all duration-500 pointer-events-none" />
-              
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+
+              {/* Section Header & Subtabs */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div>
                   <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>درخواست‌های تسویه حساب و برداشت وجه</span>
-                    {hasPendingWithdrawal && (
-                      <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
-                        <Clock className="w-3 h-3" />
-                        <span>۱ درخواست در حال بررسی</span>
-                      </span>
-                    )}
+                    <Wallet className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                    <span>تاریخچه و تراکنش‌های مالی حساب</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    لیست کامل درخواست‌های واریز وجه به شماره شبا و پیگیری وضعیت تسویه با نظارت سیستم بانکی
+                    گزارش کامل واریزها (شارژ کارت‌به‌کارت و پرداخت‌ها) و درخواست‌های تسویه و برداشت وجه
                   </p>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+
+                {/* Subtab Switcher */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl text-xs font-bold shrink-0 w-full sm:w-auto overflow-x-auto">
                   <button
                     type="button"
-                    onClick={fetchWithdrawals}
-                    disabled={isLoadingWithdrawals}
-                    className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:scale-110 active:scale-90 transition-all duration-200 cursor-pointer"
-                    title="به‌روزرسانی لیست"
+                    onClick={() => setWalletSubTab("deposits")}
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      walletSubTab === "deposits"
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
                   >
-                    <RefreshCw className={`w-4 h-4 ${isLoadingWithdrawals ? "animate-spin" : ""}`} />
+                    <ArrowDownLeft className="w-4 h-4 text-emerald-500" />
+                    <span>واریزها و شارژ</span>
+                    <span className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full">
+                      {deposits.length}
+                    </span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => setIsWithdrawModalOpen(true)}
-                    disabled={(user.directDepositBalance || 0) < 50000 || hasPendingWithdrawal}
-                    title={
-                      hasPendingWithdrawal
-                        ? "شما یک درخواست تسویه در حال بررسی دارید"
-                        : (user.directDepositBalance || 0) < 50000
-                        ? "حداقل موجودی قابل تسویه ۵۰,۰۰۰ تومان می‌باشد"
-                        : "ثبت درخواست تسویه جدید"
-                    }
-                    className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs hover:shadow-md hover:shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-initial cursor-pointer"
+                    onClick={() => setWalletSubTab("withdrawals")}
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      walletSubTab === "withdrawals"
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
                   >
-                    <Plus className="w-4 h-4" />
-                    <span>درخواست تسویه جدید</span>
+                    <ArrowUpRight className="w-4 h-4 text-amber-500" />
+                    <span>برداشت و تسویه</span>
+                    <span className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-full">
+                      {withdrawals.length}
+                    </span>
+                    {hasPendingWithdrawal && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setWalletSubTab("all")}
+                    className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      walletSubTab === "all"
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-300 shadow-sm"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <Sliders className="w-4 h-4 text-teal-500" />
+                    <span>گردش کلی</span>
+                    <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded-full">
+                      {deposits.length + withdrawals.length}
+                    </span>
                   </button>
                 </div>
               </div>
 
-              {hasPendingWithdrawal && (
-                <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
-                  <Clock className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-                  <div className="space-y-1">
-                    <span className="font-bold">درخواست تسویه در صف بررسی واحد مالی:</span>
-                    <p className="leading-relaxed opacity-90">
-                      درخواست شما به مبلغ <b>{new Intl.NumberFormat("en-US").format(pendingWithdrawal?.amountToman || 0)} تومان</b> در حال پردازش می‌باشد. به دلیل الزامات سامانه تسویه بانکی، ثبت درخواست جدید پس از تعیین تکلیف این درخواست امکان‌پذیر خواهد بود.
-                    </p>
+              {/* ========================================================= */}
+              {/* SUBTAB 1: DEPOSITS & CARD PAYMENTS HISTORY                */}
+              {/* ========================================================= */}
+              {walletSubTab === "deposits" && (
+                <div className="space-y-5 animate-in fade-in duration-200">
+                  {/* Quick Deposit Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/40 space-y-1">
+                      <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 block">
+                        مجموع واریزی موفق
+                      </span>
+                      <div className="font-mono font-black text-base sm:text-lg text-emerald-700 dark:text-emerald-400">
+                        {new Intl.NumberFormat("en-US").format(
+                          deposits
+                            .filter((d) => d.status === "PAID" || d.status === "APPROVED")
+                            .reduce((sum, d) => sum + (d.amountToman || 0), 0)
+                        )}{" "}
+                        <span className="text-[10px] font-normal">تومان</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/70 dark:border-teal-800/40 space-y-1">
+                      <span className="text-[10px] font-bold text-teal-800 dark:text-teal-300 block">
+                        تراکنش‌های تایید شده
+                      </span>
+                      <div className="font-mono font-black text-base sm:text-lg text-teal-700 dark:text-teal-400">
+                        {deposits.filter((d) => d.status === "PAID" || d.status === "APPROVED").length}{" "}
+                        <span className="text-[10px] font-normal">مورد</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-800/40 space-y-1">
+                      <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 block">
+                        در حال بررسی رسید
+                      </span>
+                      <div className="font-mono font-black text-base sm:text-lg text-blue-700 dark:text-blue-400">
+                        {deposits.filter((d) => d.status === "MANUAL_REVIEW").length}{" "}
+                        <span className="text-[10px] font-normal">مورد</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 space-y-1">
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 block">
+                        رد شده یا منقضی
+                      </span>
+                      <div className="font-mono font-black text-base sm:text-lg text-slate-700 dark:text-slate-300">
+                        {deposits.filter((d) => d.status === "REJECTED" || d.status === "EXPIRED").length}{" "}
+                        <span className="text-[10px] font-normal">مورد</span>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Filter Toolbar */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/60 text-xs">
+                    {/* Status filter pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                      {[
+                        { key: "all", label: "همه وضعیت‌ها" },
+                        { key: "PAID", label: "موفق" },
+                        { key: "MANUAL_REVIEW", label: "در حال بررسی" },
+                        { key: "PENDING", label: "در انتظار" },
+                        { key: "REJECTED", label: "رد شده" },
+                        { key: "EXPIRED", label: "منقضی شده" },
+                      ].map((st) => (
+                        <button
+                          key={st.key}
+                          type="button"
+                          onClick={() => setDepositStatusFilter(st.key)}
+                          className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer text-[11px] ${
+                            depositStatusFilter === st.key
+                              ? "bg-teal-600 text-white shadow-xs"
+                              : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-teal-500"
+                          }`}
+                        >
+                          {st.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Type Filter & Refresh */}
+                    <div className="flex items-center gap-2 justify-end">
+                      <select
+                        value={depositTypeFilter}
+                        onChange={(e) => setDepositTypeFilter(e.target.value)}
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium outline-none cursor-pointer"
+                      >
+                        <option value="all">همه انواع تراکنش</option>
+                        <option value="WALLET_TOPUP">شارژ کیف پول</option>
+                        <option value="ORDER">پرداخت سفارش</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={fetchDeposits}
+                        disabled={isLoadingDeposits}
+                        className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                        title="به‌روزرسانی واریزها"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isLoadingDeposits ? "animate-spin" : ""}`} />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsTopUpOpen(true)}
+                        className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>واریز جدید</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Deposits List */}
+                  {isLoadingDeposits ? (
+                    <div className="py-12 text-center text-slate-400 flex items-center justify-center gap-2 text-xs">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>در حال دریافت سوابق واریزی...</span>
+                    </div>
+                  ) : deposits.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 dark:text-slate-500 space-y-2">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                        <Wallet className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-medium">هیچ تراکنش واریزی با این فیلتر یافت نشد.</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsTopUpOpen(true)}
+                        className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline inline-block pt-1 cursor-pointer"
+                      >
+                        شارژ کیف پول از طریق کارت‌به‌کارت هوشمند
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Mobile Card View */}
+                      <div className="block md:hidden space-y-3">
+                        {deposits.map((item) => (
+                          <div
+                            key={item.id}
+                            className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-3"
+                          >
+                            <div className="flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[11px] text-slate-500 font-bold">
+                                  #{item.orderNumber || item.paymentToken}
+                                </span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                                  {item.paymentType === "WALLET_TOPUP" ? "شارژ کیف پول" : "پرداخت سفارش"}
+                                </span>
+                              </div>
+
+                              {/* Status Badge */}
+                              <div>
+                                {(item.status === "PAID" || item.status === "APPROVED") && (
+                                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    <span>واریز شد (موفق)</span>
+                                  </span>
+                                )}
+                                {item.status === "MANUAL_REVIEW" && (
+                                  <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    <Clock className="w-3 h-3" />
+                                    <span>در حال بررسی فیش</span>
+                                  </span>
+                                )}
+                                {item.status === "PENDING" && (
+                                  <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    <Clock className="w-3 h-3" />
+                                    <span>در انتظار پرداخت</span>
+                                  </span>
+                                )}
+                                {item.status === "REJECTED" && (
+                                  <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    <X className="w-3 h-3" />
+                                    <span>رد شده توسط ادمین</span>
+                                  </span>
+                                )}
+                                {item.status === "EXPIRED" && (
+                                  <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    <span>منقضی شده</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Amount Display */}
+                            <div className="flex items-baseline justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                              <span className="text-xs text-slate-500">مبلغ واریزی:</span>
+                              <div className="text-left dir-ltr">
+                                <span className="text-sm font-black font-mono text-slate-900 dark:text-white">
+                                  {new Intl.NumberFormat("en-US").format(item.amountToman)} تومان
+                                </span>
+                                {item.uniqueAmountRial && (
+                                  <span className="text-[10px] text-slate-400 block">
+                                    ({new Intl.NumberFormat("en-US").format(item.uniqueAmountRial)} ریال)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Details: Tracking, Card, Date */}
+                            <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1.5 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                              {item.trackingCode && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">کد پیگیری / ارجاع:</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-bold text-teal-700 dark:text-teal-300">
+                                      {item.trackingCode}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => copyToClipboard(item.trackingCode, "کد رهگیری")}
+                                      className="p-1 text-slate-400 hover:text-teal-600"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {item.userCardNumber && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">کارت واریزکننده:</span>
+                                  <span className="font-mono">{item.userCardNumber}</span>
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-slate-400">تاریخ و زمان:</span>
+                                <span>
+                                  {new Intl.DateTimeFormat("fa-IR", {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  }).format(new Date(item.createdAt))}
+                                </span>
+                              </div>
+
+                              {item.destCardNumber && (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">کارت مقصد:</span>
+                                  <span className="font-mono text-[10px] text-slate-500">
+                                    {formatCardNumber(item.destCardNumber)} ({item.destCardOwner || "ارزان اکانت"})
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Receipt Image Button */}
+                            {item.receiptUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewReceiptUrl(item.receiptUrl)}
+                                className="w-full py-1.5 px-3 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>مشاهده تصویر فیش ارسالی</span>
+                              </button>
+                            )}
+
+                            {/* Admin Note if any */}
+                            {item.adminNote && (
+                              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed">
+                                <strong>توضیحات مدیریت: </strong>
+                                <span>{item.adminNote}</span>
+                              </div>
+                            )}
+
+                            {/* Action for PENDING */}
+                            {item.status === "PENDING" && item.orderNumber && (
+                              <Link
+                                href={`/payment/card/${item.orderNumber}`}
+                                className="w-full py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-xs"
+                              >
+                                <span>انتقال وجه و ثبت فیش واریز</span>
+                                <ChevronLeft className="w-4 h-4" />
+                              </Link>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Desktop Table View */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-right text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold">
+                              <th className="pb-3 pr-2">شناسه و نوع</th>
+                              <th className="pb-3">مبلغ واریزی</th>
+                              <th className="pb-3">وضعیت</th>
+                              <th className="pb-3">کد پیگیری / کارت</th>
+                              <th className="pb-3">تاریخ و زمان</th>
+                              <th className="pb-3 pl-2">فیش / اقدامات</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                            {deposits.map((item) => (
+                              <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                <td className="py-3.5 pr-2">
+                                  <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
+                                    #{item.orderNumber || item.paymentToken}
+                                  </span>
+                                  <span className="text-[10px] font-medium text-teal-600 dark:text-teal-400">
+                                    {item.paymentType === "WALLET_TOPUP" ? "شارژ کیف پول" : "پرداخت سفارش"}
+                                  </span>
+                                </td>
+
+                                <td className="py-3.5">
+                                  <span className="font-bold font-mono text-slate-900 dark:text-white text-sm block">
+                                    {new Intl.NumberFormat("en-US").format(item.amountToman)} تومان
+                                  </span>
+                                  {item.uniqueAmountRial && (
+                                    <span className="text-[10px] font-mono text-slate-400 block">
+                                      {new Intl.NumberFormat("en-US").format(item.uniqueAmountRial)} ریال
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-3.5">
+                                  {(item.status === "PAID" || item.status === "APPROVED") && (
+                                    <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      <span>واریز شد (موفق)</span>
+                                    </span>
+                                  )}
+                                  {item.status === "MANUAL_REVIEW" && (
+                                    <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                      <Clock className="w-3 h-3" />
+                                      <span>در حال بررسی فیش</span>
+                                    </span>
+                                  )}
+                                  {item.status === "PENDING" && (
+                                    <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                      <Clock className="w-3 h-3" />
+                                      <span>در انتظار پرداخت</span>
+                                    </span>
+                                  )}
+                                  {item.status === "REJECTED" && (
+                                    <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                      <X className="w-3 h-3" />
+                                      <span>رد شده</span>
+                                    </span>
+                                  )}
+                                  {item.status === "EXPIRED" && (
+                                    <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                      <span>منقضی شده</span>
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-3.5">
+                                  {item.trackingCode ? (
+                                    <div className="flex items-center gap-1 font-mono font-bold text-teal-700 dark:text-teal-300">
+                                      <span>{item.trackingCode}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => copyToClipboard(item.trackingCode, "کد رهگیری")}
+                                        className="p-1 hover:text-teal-500 text-slate-400"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                  {item.userCardNumber && (
+                                    <span className="text-[10px] text-slate-400 font-mono block">
+                                      کارت: {item.userCardNumber}
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-3.5 text-slate-500 text-[11px]">
+                                  <span>
+                                    {new Intl.DateTimeFormat("fa-IR", {
+                                      dateStyle: "medium",
+                                      timeStyle: "short",
+                                    }).format(new Date(item.createdAt))}
+                                  </span>
+                                  {item.depositTime && (
+                                    <span className="text-[10px] text-teal-600 block">
+                                      زمان واریز: {item.depositTime}
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-3.5 pl-2 space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    {item.receiptUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewReceiptUrl(item.receiptUrl)}
+                                        className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 hover:scale-105 transition-all flex items-center gap-1 font-bold text-[10px] cursor-pointer"
+                                        title="مشاهده تصویر فیش"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                        <span>فیش</span>
+                                      </button>
+                                    )}
+
+                                    {item.status === "PENDING" && item.orderNumber && (
+                                      <Link
+                                        href={`/payment/card/${item.orderNumber}`}
+                                        className="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-[10px] inline-flex items-center gap-1"
+                                      >
+                                        <span>پرداخت</span>
+                                        <ChevronLeft className="w-3 h-3" />
+                                      </Link>
+                                    )}
+                                  </div>
+
+                                  {item.adminNote && (
+                                    <span className="text-[10px] text-rose-500 block max-w-xs truncate" title={item.adminNote}>
+                                      پیام: {item.adminNote}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
-              {isLoadingWithdrawals ? (
-                <div className="py-12 text-center text-slate-400 flex items-center justify-center gap-2 text-xs">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>در حال دریافت اطلاعات درخواست‌ها...</span>
-                </div>
-              ) : withdrawals.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 dark:text-slate-500 space-y-2">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
-                    <Clock className="w-6 h-6" />
-                  </div>
-                  <p className="text-xs font-medium">تاکنون درخواست تسویه‌ای ثبت نکرده‌اید.</p>
-                  <p className="text-[11px]">واریزی‌های مستقیم نقدی شما در هر زمان (حداقل ۵۰,۰۰۰ تومان) قابل ثبت جهت انتقال به حساب بانکی می‌باشند.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Mobile Cards View (sm:hidden) */}
-                  <div className="block md:hidden space-y-3">
-                    {withdrawals.map((req) => {
-                      const detectedBank = req.bankName || (req.sheba ? validateIranianSheba(req.sheba).bankName : (req.cardNumber ? validateIranianCardNumber(req.cardNumber).bankName : null));
-                      return (
-                        <div
-                          key={req.id}
-                          className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5"
-                        >
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-mono text-[11px] text-slate-500 font-bold">
-                              #{req.id.slice(-6).toUpperCase()}
-                            </span>
-                            <div>
-                              {req.status === "PENDING" && (
-                                <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                  <Clock className="w-3 h-3" />
-                                  <span>در انتظار بررسی و واریز</span>
-                                </span>
-                              )}
-                              {req.status === "APPROVED" && (
-                                <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  <span>واریز شد (موفق)</span>
-                                </span>
-                              )}
-                              {req.status === "REJECTED" && (
-                                <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                  <X className="w-3 h-3" />
-                                  <span>رد شد (وجه عودت یافت)</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-500">مبلغ تسویه:</span>
-                            <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">
-                              {new Intl.NumberFormat("en-US").format(req.amountToman)} تومان
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] text-slate-600 dark:text-slate-300 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1.5">
-                            {detectedBank && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-slate-400">بانک مقصد:</span>
-                                <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                                  <CreditCard className="w-3 h-3 text-teal-600 dark:text-teal-400" />
-                                  <span>{detectedBank}</span>
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex items-center justify-between">
-                              <span className="text-slate-400">مقصد واریز:</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono text-left dir-ltr font-medium text-[11px]">
-                                  {req.sheba || req.cardNumber || "—"}
-                                </span>
-                                {(req.sheba || req.cardNumber) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => copyToClipboard(req.sheba || req.cardNumber, "شماره شبا / کارت")}
-                                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                                    title="کپی شماره حساب"
-                                  >
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {req.accountOwnerName && (
-                              <div className="flex items-center justify-between">
-                                <span className="text-slate-400">صاحب حساب:</span>
-                                <span className="font-medium">{req.accountOwnerName}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center justify-between">
-                              <span className="text-slate-400">تاریخ ثبت:</span>
-                              <span>{new Date(req.createdAt).toLocaleDateString("fa-IR")}</span>
-                            </div>
-                          </div>
-
-                          {/* Tracking & Notes */}
-                          {req.bankTrackingCode && (
-                            <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300">
-                              <span className="font-semibold">
-                                کد پیگیری: <span className="font-mono font-bold">{req.bankTrackingCode}</span>
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => copyToClipboard(req.bankTrackingCode, "کد رهگیری")}
-                                className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900 rounded text-emerald-700 dark:text-emerald-300"
-                                title="کپی کد رهگیری"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-
-                          {req.status === "REJECTED" && (
-                            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-[11px] space-y-1">
-                              <div className="text-rose-700 dark:text-rose-300 font-bold flex items-center gap-1">
-                                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                <span>مبلغ به کیف پول و موجودی مستقیم شما عودت داده شد</span>
-                              </div>
-                              {req.adminNote && (
-                                <p className="text-slate-600 dark:text-slate-300 text-[10px] leading-relaxed">
-                                  علت رد: {req.adminNote}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+              {/* ========================================================= */}
+              {/* SUBTAB 2: WITHDRAWAL REQUESTS HISTORY                     */}
+              {/* ========================================================= */}
+              {walletSubTab === "withdrawals" && (
+                <div className="space-y-5 animate-in fade-in duration-200">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800 text-xs">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      درخواست‌های انتقال وجه به شماره شبا و حساب بانکی کاربر
+                    </span>
+                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                      <button
+                        type="button"
+                        onClick={fetchWithdrawals}
+                        disabled={isLoadingWithdrawals}
+                        className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                        title="به‌روزرسانی برداشت‌ها"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isLoadingWithdrawals ? "animate-spin" : ""}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsWithdrawModalOpen(true)}
+                        disabled={(user.directDepositBalance || 0) < 50000 || hasPendingWithdrawal}
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>درخواست تسویه جدید</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Desktop Table (hidden md:block) */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-right text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold">
-                          <th className="pb-3 pr-2">شناسه</th>
-                          <th className="pb-3">مبلغ تسویه</th>
-                          <th className="pb-3">بانک و حساب مقصد</th>
-                          <th className="pb-3">تاریخ ثبت</th>
-                          <th className="pb-3">وضعیت</th>
-                          <th className="pb-3 pl-2">پیگیری / توضیحات</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {hasPendingWithdrawal && (
+                    <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
+                      <Clock className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                      <div className="space-y-1">
+                        <span className="font-bold">درخواست تسویه در صف بررسی واحد مالی:</span>
+                        <p className="leading-relaxed opacity-90">
+                          درخواست شما به مبلغ <b>{new Intl.NumberFormat("en-US").format(pendingWithdrawal?.amountToman || 0)} تومان</b> در حال پردازش می‌باشد.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {isLoadingWithdrawals ? (
+                    <div className="py-12 text-center text-slate-400 flex items-center justify-center gap-2 text-xs">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>در حال دریافت اطلاعات درخواست‌ها...</span>
+                    </div>
+                  ) : withdrawals.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 dark:text-slate-500 space-y-2">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                        <Clock className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-medium">تاکنون درخواست تسویه‌ای ثبت نکرده‌اید.</p>
+                      <p className="text-[11px]">واریزی‌های مستقیم نقدی شما در هر زمان (حداقل ۵۰,۰۰۰ تومان) قابل ثبت جهت انتقال به حساب بانکی می‌باشند.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Mobile Cards */}
+                      <div className="block md:hidden space-y-3">
                         {withdrawals.map((req) => {
                           const detectedBank = req.bankName || (req.sheba ? validateIranianSheba(req.sheba).bankName : (req.cardNumber ? validateIranianCardNumber(req.cardNumber).bankName : null));
                           return (
-                            <tr key={req.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                              <td className="py-3.5 pr-2 font-mono text-[11px] text-slate-500">
-                                #{req.id.slice(-6).toUpperCase()}
-                              </td>
-                              <td className="py-3.5 font-bold font-mono text-slate-900 dark:text-white">
-                                {new Intl.NumberFormat("en-US").format(req.amountToman)} تومان
-                              </td>
-                              <td className="py-3.5 text-slate-700 dark:text-slate-300">
-                                {detectedBank && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-800/60 mb-1">
-                                    <CreditCard className="w-3 h-3" />
-                                    <span>{detectedBank}</span>
-                                  </span>
-                                )}
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-mono dir-ltr text-left text-[11px]">
-                                    {req.sheba || req.cardNumber || "—"}
-                                  </span>
-                                  {(req.sheba || req.cardNumber) && (
-                                    <button
-                                      type="button"
-                                      onClick={() => copyToClipboard(req.sheba || req.cardNumber, "شماره حساب")}
-                                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
-                                      title="کپی شماره حساب"
-                                    >
-                                      <Copy className="w-3 h-3" />
-                                    </button>
+                            <div
+                              key={req.id}
+                              className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5"
+                            >
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-mono text-[11px] text-slate-500 font-bold">
+                                  #{req.id.slice(-6).toUpperCase()}
+                                </span>
+                                <div>
+                                  {req.status === "PENDING" && (
+                                    <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                      <Clock className="w-3 h-3" />
+                                      <span>در انتظار بررسی و واریز</span>
+                                    </span>
+                                  )}
+                                  {req.status === "APPROVED" && (
+                                    <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      <span>واریز شد (موفق)</span>
+                                    </span>
+                                  )}
+                                  {req.status === "REJECTED" && (
+                                    <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                      <X className="w-3 h-3" />
+                                      <span>رد شد (وجه عودت یافت)</span>
+                                    </span>
                                   )}
                                 </div>
-                                {req.accountOwnerName && (
-                                  <span className="text-[10px] text-slate-400 block">{req.accountOwnerName}</span>
-                                )}
-                              </td>
-                              <td className="py-3.5 text-slate-500 text-[11px]">
-                                {new Date(req.createdAt).toLocaleDateString("fa-IR")}
-                              </td>
-                              <td className="py-3.5">
-                                {req.status === "PENDING" && (
-                                  <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                                    <Clock className="w-3 h-3" />
-                                    <span>در انتظار بررسی</span>
-                                  </span>
-                                )}
-                                {req.status === "APPROVED" && (
-                                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    <span>واریز شد</span>
-                                  </span>
-                                )}
-                                {req.status === "REJECTED" && (
-                                  <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                                    <X className="w-3 h-3" />
-                                    <span>رد شد</span>
-                                  </span>
-                                )}
-                              </td>
-                              <td className="py-3.5 pl-2">
-                                {req.bankTrackingCode && (
-                                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold font-mono text-[11px]">
-                                    <span>کد پیگیری: {req.bankTrackingCode}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => copyToClipboard(req.bankTrackingCode, "کد رهگیری")}
-                                      className="p-1 hover:bg-emerald-100 dark:hover:bg-emerald-900 rounded text-emerald-700 dark:text-emerald-400"
-                                      title="کپی کد رهگیری"
-                                    >
-                                      <Copy className="w-3 h-3" />
-                                    </button>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-slate-500">مبلغ تسویه:</span>
+                                <span className="text-sm font-bold font-mono text-slate-900 dark:text-white">
+                                  {new Intl.NumberFormat("en-US").format(req.amountToman)} تومان
+                                </span>
+                              </div>
+
+                              <div className="text-[11px] text-slate-600 dark:text-slate-300 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 space-y-1.5">
+                                {detectedBank && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-slate-400">بانک مقصد:</span>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                                      <CreditCard className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                                      <span>{detectedBank}</span>
+                                    </span>
                                   </div>
                                 )}
-                                {req.status === "REJECTED" && (
-                                  <div className="text-[10px] text-rose-600 dark:text-rose-400 max-w-xs leading-relaxed">
-                                    {req.adminNote ? req.adminNote : "درخواست رد و وجه به کیف پول عودت داده شد."}
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">مقصد واریز:</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono text-left dir-ltr font-medium text-[11px]">
+                                      {req.sheba || req.cardNumber || "—"}
+                                    </span>
+                                    {(req.sheba || req.cardNumber) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => copyToClipboard(req.sheba || req.cardNumber, "شماره حساب")}
+                                        className="p-1 text-slate-400 hover:text-slate-600"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                      </button>
+                                    )}
                                   </div>
-                                )}
-                                {!req.bankTrackingCode && req.status !== "REJECTED" && (
-                                  <span className="text-slate-400 text-[11px]">—</span>
-                                )}
-                              </td>
-                            </tr>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-400">تاریخ ثبت:</span>
+                                  <span>{new Date(req.createdAt).toLocaleDateString("fa-IR")}</span>
+                                </div>
+                              </div>
+
+                              {req.bankTrackingCode && (
+                                <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300">
+                                  <span className="font-semibold">
+                                    کد پیگیری: <span className="font-mono font-bold">{req.bankTrackingCode}</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(req.bankTrackingCode, "کد رهگیری")}
+                                    className="p-1 hover:bg-emerald-100 rounded text-emerald-700"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+
+                              {req.status === "REJECTED" && (
+                                <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-[11px] space-y-1">
+                                  <div className="text-rose-700 dark:text-rose-300 font-bold flex items-center gap-1">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    <span>مبلغ به کیف پول شما عودت داده شد</span>
+                                  </div>
+                                  {req.adminNote && (
+                                    <p className="text-slate-600 dark:text-slate-300 text-[10px]">
+                                      علت رد: {req.adminNote}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
+                      </div>
+
+                      {/* Desktop Table */}
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-right text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 font-bold">
+                              <th className="pb-3 pr-2">شناسه</th>
+                              <th className="pb-3">مبلغ تسویه</th>
+                              <th className="pb-3">بانک و حساب مقصد</th>
+                              <th className="pb-3">تاریخ ثبت</th>
+                              <th className="pb-3">وضعیت</th>
+                              <th className="pb-3 pl-2">پیگیری / توضیحات</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                            {withdrawals.map((req) => {
+                              const detectedBank = req.bankName || (req.sheba ? validateIranianSheba(req.sheba).bankName : (req.cardNumber ? validateIranianCardNumber(req.cardNumber).bankName : null));
+                              return (
+                                <tr key={req.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                  <td className="py-3.5 pr-2 font-mono text-[11px] text-slate-500">
+                                    #{req.id.slice(-6).toUpperCase()}
+                                  </td>
+                                  <td className="py-3.5 font-bold font-mono text-slate-900 dark:text-white">
+                                    {new Intl.NumberFormat("en-US").format(req.amountToman)} تومان
+                                  </td>
+                                  <td className="py-3.5 text-slate-700 dark:text-slate-300">
+                                    {detectedBank && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-800/60 mb-1">
+                                        <CreditCard className="w-3 h-3" />
+                                        <span>{detectedBank}</span>
+                                      </span>
+                                    )}
+                                    <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                                      <span>{req.sheba || req.cardNumber || "—"}</span>
+                                      {(req.sheba || req.cardNumber) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => copyToClipboard(req.sheba || req.cardNumber, "شماره حساب")}
+                                          className="text-slate-400 hover:text-slate-600"
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 text-slate-500 text-[11px]">
+                                    {new Date(req.createdAt).toLocaleDateString("fa-IR")}
+                                  </td>
+                                  <td className="py-3.5">
+                                    {req.status === "PENDING" && (
+                                      <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                        <Clock className="w-3 h-3" />
+                                        <span>در انتظار بررسی</span>
+                                      </span>
+                                    )}
+                                    {req.status === "APPROVED" && (
+                                      <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        <span>واریز شد</span>
+                                      </span>
+                                    )}
+                                    {req.status === "REJECTED" && (
+                                      <span className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                        <X className="w-3 h-3" />
+                                        <span>رد شد</span>
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3.5 pl-2">
+                                    {req.bankTrackingCode && (
+                                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold font-mono text-[11px]">
+                                        <span>{req.bankTrackingCode}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => copyToClipboard(req.bankTrackingCode, "کد رهگیری")}
+                                          className="p-1 hover:bg-emerald-100 rounded"
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    )}
+                                    {req.status === "REJECTED" && (
+                                      <div className="text-[10px] text-rose-600 dark:text-rose-400 max-w-xs leading-relaxed">
+                                        {req.adminNote || "درخواست رد و وجه عودت داده شد."}
+                                      </div>
+                                    )}
+                                    {!req.bankTrackingCode && req.status !== "REJECTED" && (
+                                      <span className="text-slate-400 text-[11px]">—</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ========================================================= */}
+              {/* SUBTAB 3: INTEGRATED ALL TRANSACTIONS                     */}
+              {/* ========================================================= */}
+              {walletSubTab === "all" && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
+                    گردش زمانی یکپارچه کلیه تراکنش‌های واریزی، شارژ حساب و درخواست‌های تسویه وجه
                   </div>
-                </>
+
+                  {deposits.length === 0 && withdrawals.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-xs">
+                      هنوز تراکنشی در حساب شما ثبت نگردیده است.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {[
+                        ...deposits.map((d) => ({
+                          id: d.id,
+                          isDeposit: true,
+                          title: d.paymentType === "WALLET_TOPUP" ? "شارژ کیف پول (کارت به کارت)" : "پرداخت سفارش",
+                          code: d.orderNumber || d.paymentToken,
+                          amountToman: d.amountToman,
+                          status: d.status,
+                          trackingCode: d.trackingCode,
+                          receiptUrl: d.receiptUrl,
+                          createdAt: d.createdAt,
+                          adminNote: d.adminNote,
+                        })),
+                        ...withdrawals.map((w) => ({
+                          id: w.id,
+                          isDeposit: false,
+                          title: "تسویه و برداشت وجه به شبا",
+                          code: `#W-${w.id.slice(-6).toUpperCase()}`,
+                          amountToman: w.amountToman,
+                          status: w.status,
+                          trackingCode: w.bankTrackingCode,
+                          receiptUrl: null,
+                          createdAt: w.createdAt,
+                          adminNote: w.adminNote,
+                        })),
+                      ]
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .map((tx) => (
+                          <div
+                            key={tx.id}
+                            className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800/80 bg-white dark:bg-slate-800/40 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                  tx.isDeposit
+                                    ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400"
+                                }`}
+                              >
+                                {tx.isDeposit ? (
+                                  <ArrowDownLeft className="w-5 h-5" />
+                                ) : (
+                                  <ArrowUpRight className="w-5 h-5" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 dark:text-white block">
+                                  {tx.title}
+                                </span>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                  <span className="font-mono">{tx.code}</span>
+                                  <span>•</span>
+                                  <span>
+                                    {new Intl.DateTimeFormat("fa-IR", {
+                                      dateStyle: "medium",
+                                      timeStyle: "short",
+                                    }).format(new Date(tx.createdAt))}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-left flex flex-col items-end gap-1">
+                              <span
+                                className={`font-mono font-black text-sm dir-ltr ${
+                                  tx.isDeposit
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-amber-600 dark:text-amber-400"
+                                }`}
+                              >
+                                {tx.isDeposit ? "+" : "-"}
+                                {new Intl.NumberFormat("en-US").format(tx.amountToman)} تومان
+                              </span>
+
+                              {/* Status mini badge */}
+                              {(tx.status === "PAID" || tx.status === "APPROVED") && (
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                  موفق
+                                </span>
+                              )}
+                              {tx.status === "MANUAL_REVIEW" && (
+                                <span className="text-[10px] font-bold text-blue-500">در حال بررسی فیش</span>
+                              )}
+                              {tx.status === "PENDING" && (
+                                <span className="text-[10px] font-bold text-amber-500">در انتظار</span>
+                              )}
+                              {tx.status === "REJECTED" && (
+                                <span className="text-[10px] font-bold text-rose-500">رد شده</span>
+                              )}
+                              {tx.status === "EXPIRED" && (
+                                <span className="text-[10px] font-bold text-slate-400">منقضی</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -2797,6 +3418,58 @@ export default function ProfilePage() {
             }
           }}
         />
+      )}
+
+      {/* Receipt Preview Lightbox Modal */}
+      {previewReceiptUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setPreviewReceiptUrl(null)}
+        >
+          <div
+            className="relative max-w-lg w-full bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
+              <span className="font-bold text-sm text-slate-800 dark:text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                تصویر فیش واریزی
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewReceiptUrl(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-950 flex items-center justify-center max-h-[70vh]">
+              <img
+                src={previewReceiptUrl}
+                alt="فیش واریزی"
+                className="w-full h-auto max-h-[70vh] object-contain"
+              />
+            </div>
+            <div className="mt-3 flex justify-end gap-2">
+              <a
+                href={previewReceiptUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>مشاهده در اندازه کامل</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewReceiptUrl(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-200 transition-all cursor-pointer"
+              >
+                بستن
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Footer />

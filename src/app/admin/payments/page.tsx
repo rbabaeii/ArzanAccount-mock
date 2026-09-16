@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice, formatNumber } from "@/lib/format";
@@ -27,6 +28,9 @@ import {
   FileText,
   Sliders,
   Sparkles,
+  Users,
+  User,
+  ArrowUpRight,
 } from "lucide-react";
 
 export default function AdminPaymentsPage() {
@@ -37,6 +41,8 @@ export default function AdminPaymentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [userIdFilter, setUserIdFilter] = useState<string>("");
+  const [userFilterName, setUserFilterName] = useState<string>("");
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Modals
@@ -99,6 +105,7 @@ export default function AdminPaymentsPage() {
       const res = await api.getAdminCardPayments({
         status: statusFilter,
         type: typeFilter,
+        userId: userIdFilter || undefined,
         search: searchTerm,
         role: currentAdmin?.role || "SUPER_ADMIN",
       });
@@ -112,7 +119,7 @@ export default function AdminPaymentsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, typeFilter, searchTerm, currentAdmin?.role]);
+  }, [statusFilter, typeFilter, userIdFilter, searchTerm, currentAdmin?.role]);
 
   useEffect(() => {
     fetchPayments();
@@ -313,10 +320,18 @@ export default function AdminPaymentsPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <Link
+            href="/admin/withdrawals"
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+          >
+            <Wallet className="w-4 h-4 text-emerald-500" />
+            <span>تسویه‌ها و برداشت‌ها</span>
+          </Link>
+
           <button
             type="button"
             onClick={handleOpenSettings}
-            className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-teal-500 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+            className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-teal-500 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
           >
             <Settings className="w-4 h-4 text-teal-500" />
             <span>تنظیمات درگاه</span>
@@ -326,7 +341,7 @@ export default function AdminPaymentsPage() {
             type="button"
             onClick={fetchPayments}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95 disabled:opacity-60"
+            className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95 disabled:opacity-60 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
             <span>بروزرسانی</span>
@@ -410,10 +425,10 @@ export default function AdminPaymentsPage() {
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Search Box */}
-          <div className="relative w-full sm:w-80">
+          <div className="relative w-full sm:w-96">
             <input
               type="text"
-              placeholder="جستجو با شماره سفارش، کد رهگیری یا کارت..."
+              placeholder="جستجوی نام کاربر، تلفن، ایمیل، سفارش، رهگیری، کارت..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-2 pr-9 pl-3 text-xs outline-none focus:border-teal-500"
@@ -421,18 +436,39 @@ export default function AdminPaymentsPage() {
             <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
           </div>
 
-          {/* Payment Type Filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-xs text-slate-500 whitespace-nowrap">نوع تراکنش:</span>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl py-2 px-3 text-xs outline-none"
-            >
-              <option value="all">همه انواع</option>
-              <option value="ORDER">پرداخت سفارش (ORDER)</option>
-              <option value="WALLET_TOPUP">شارژ کیف پول (WALLET)</option>
-            </select>
+          <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+            {/* Active User Filter Badge */}
+            {userIdFilter && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-300 text-xs font-medium animate-in fade-in duration-200">
+                <Users className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span>فیلتر کاربر: <b>{userFilterName || userIdFilter}</b></span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserIdFilter("");
+                    setUserFilterName("");
+                  }}
+                  className="p-0.5 hover:bg-teal-200 dark:hover:bg-teal-900 rounded-full transition-colors mr-1 cursor-pointer"
+                  title="حذف فیلتر کاربر"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Payment Type Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 whitespace-nowrap">نوع تراکنش:</span>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl py-2 px-3 text-xs outline-none cursor-pointer"
+              >
+                <option value="all">همه انواع</option>
+                <option value="ORDER">پرداخت سفارش (ORDER)</option>
+                <option value="WALLET_TOPUP">شارژ کیف پول (WALLET)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -487,6 +523,7 @@ export default function AdminPaymentsPage() {
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="py-3.5 px-4 font-bold">شناسه / مرجع</th>
+                  <th className="py-3.5 px-4 font-bold">کاربر متقاضی</th>
                   <th className="py-3.5 px-4 font-bold">نوع</th>
                   <th className="py-3.5 px-4 font-bold">مبلغ (تومان)</th>
                   <th className="py-3.5 px-4 font-bold">ارقام اعشاری / ریال</th>
@@ -518,6 +555,56 @@ export default function AdminPaymentsPage() {
                       <span className="text-[10px] text-slate-400 font-mono block">
                         توکن: {p.paymentToken}
                       </span>
+                    </td>
+
+                    {/* User Info */}
+                    <td className="py-3.5 px-4">
+                      {p.user ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {p.user.name || "کاربر بی‌نام"}
+                            </span>
+                            <button
+                              type="button"
+                              title="فیلتر همه تراکنش‌های این کاربر"
+                              onClick={() => {
+                                setUserIdFilter(p.user.id);
+                                setUserFilterName(p.user.name || p.user.phone || p.user.id);
+                              }}
+                              className="p-1 hover:bg-teal-50 dark:hover:bg-teal-950/60 rounded text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer"
+                            >
+                              <Filter className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono dir-ltr text-right">
+                            {p.user.phone ? (
+                              <span>{p.user.phone}</span>
+                            ) : p.user.email ? (
+                              <span>{p.user.email}</span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
+                              {p.user.role === "SUPER_ADMIN" ? "مدیر کل" : p.user.role === "ADMIN" ? "ادمین" : "کاربر"}
+                            </span>
+                            {p.user.walletBalanceToman !== undefined && (
+                              <span className="text-[9px] text-slate-400 font-mono">
+                                کیف: {new Intl.NumberFormat("fa-IR").format(p.user.walletBalanceToman)} ت
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-400 text-xs space-y-0.5">
+                          <span>مهمان / مستقیم</span>
+                          {p.userCardNumber && (
+                            <span className="block font-mono text-[10px] dir-ltr text-slate-500">
+                              {formatCardNumber(p.userCardNumber)}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     {/* Type */}
@@ -667,11 +754,35 @@ export default function AdminPaymentsPage() {
               </div>
               <button
                 onClick={() => setModalAction(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {selectedPayment.user && (
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">کاربر:</span>{" "}
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {selectedPayment.user.name || "بی‌نام"}
+                  </span>
+                  {selectedPayment.user.phone && (
+                    <span className="text-slate-400 font-mono text-[11px] mr-2 dir-ltr inline-block">
+                      ({selectedPayment.user.phone})
+                    </span>
+                  )}
+                </div>
+                {selectedPayment.user.walletBalanceToman !== undefined && (
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                    موجودی کیف:{" "}
+                    <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                      {new Intl.NumberFormat("fa-IR").format(selectedPayment.user.walletBalanceToman)} تومان
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-900 dark:text-emerald-200 space-y-1">
               <p className="font-bold">
@@ -703,7 +814,7 @@ export default function AdminPaymentsPage() {
                 type="button"
                 onClick={handleApprove}
                 disabled={isProcessing}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
                 {isProcessing ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
@@ -715,7 +826,7 @@ export default function AdminPaymentsPage() {
               <button
                 type="button"
                 onClick={() => setModalAction(null)}
-                className="py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold"
+                className="py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer"
               >
                 انصراف
               </button>
@@ -735,11 +846,27 @@ export default function AdminPaymentsPage() {
               </div>
               <button
                 onClick={() => setModalAction(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {selectedPayment.user && (
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">کاربر:</span>{" "}
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {selectedPayment.user.name || "بی‌نام"}
+                  </span>
+                  {selectedPayment.user.phone && (
+                    <span className="text-slate-400 font-mono text-[11px] mr-2 dir-ltr inline-block">
+                      ({selectedPayment.user.phone})
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1 text-xs">
               <label className="block font-bold text-slate-700 dark:text-slate-300">
