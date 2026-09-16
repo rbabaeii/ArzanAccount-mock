@@ -712,38 +712,40 @@ export default function CardPaymentPage() {
                       {/* Exact Amount Highlight Box */}
                       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-500/15 via-emerald-500/10 to-teal-900/10 dark:from-teal-950/60 dark:via-emerald-950/30 dark:to-slate-900 border border-teal-500/30 p-5 text-center space-y-3 shadow-sm">
                         <span className="text-xs font-bold text-teal-800 dark:text-teal-200 block">
-                          مبلغ دقیق و اختصاصی قابل واریز (تومان):
+                          مبلغ دقیق و اختصاصی قابل واریز (شناسه یکتا):
                         </span>
 
                         <div className="flex items-center justify-center gap-3">
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-3xl sm:text-4xl font-black text-brand-dark dark:text-white font-mono tracking-tight dir-ltr">
-                              {formatNumber(paymentData.uniqueAmountToman)}
+                            <span className="text-3xl sm:text-4xl font-black text-brand-dark dark:text-white font-mono tracking-tight dir-ltr select-all">
+                              {formatNumber(paymentData.uniqueAmountRial || paymentData.amountRial)}
                             </span>
-                            <span className="text-sm font-bold text-teal-700 dark:text-teal-300">تومان</span>
+                            <span className="text-sm font-bold text-teal-700 dark:text-teal-300">ریال</span>
                           </div>
 
                           <button
                             type="button"
                             onClick={() =>
-                              handleCopy(String(paymentData.uniqueAmountToman), "amountToman")
+                              handleCopy(
+                                String(paymentData.uniqueAmountRial || paymentData.amountRial),
+                                "amountRial"
+                              )
                             }
-                            className="p-2.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-700 dark:text-teal-300 transition-colors cursor-pointer"
-                            title="کپی مبلغ به تومان"
+                            className="p-2.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-700 dark:text-teal-300 transition-colors cursor-pointer flex items-center gap-1.5"
+                            title="کپی مبلغ دقیق به ریال"
                           >
-                            {copiedField === "amountToman" ? (
+                            {copiedField === "amountRial" ? (
                               <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                                <Check className="w-3.5 h-3.5" />
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
                                 <span>کپی شد</span>
                               </span>
                             ) : (
-                              <Copy className="w-4 h-4" />
+                              <>
+                                <Copy className="w-4 h-4" />
+                                <span className="text-[11px] font-bold">کپی مبلغ</span>
+                              </>
                             )}
                           </button>
-                        </div>
-
-                        <div className="text-xs font-mono text-slate-500 dark:text-slate-400 dir-ltr">
-                          معادل {formatNumber(paymentData.uniqueAmountRial)} ریال
                         </div>
 
                         {/* Crucial Instructions Banner */}
@@ -753,7 +755,7 @@ export default function CardPaymentPage() {
                             <span>نکته حیاتی جهت تایید خودکار و آنی:</span>
                           </div>
                           <p>
-                            لطفاً <strong>دقیقاً همین مبلغ فوق (شامل ارقام انتهایی)</strong> را بدون گرد کردن به شماره کارت زیر انتقال دهید. سامانه هوشمند با تطبیق دقیق مبلغ واریزی، سفارش شما را بدون معطلی فعال می‌نماید.
+                            لطفاً <strong>دقیقاً همین مبلغ فوق (به ریال)</strong> را بدون کم و کاست یا گرد کردن به شماره کارت زیر انتقال دهید. سامانه هوشمند با تطبیق دقیق مبلغ واریزی، تراکنش شما را بدون معطلی تایید می‌نماید.
                           </p>
                         </div>
                       </div>

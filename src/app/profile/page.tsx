@@ -61,6 +61,7 @@ export default function ProfilePage() {
     openLoginModal,
     updateProfile,
     updatePassword,
+    refreshUser,
     topUpWallet,
     requestWithdrawal,
     bindReferral,
@@ -2280,49 +2281,26 @@ export default function ProfilePage() {
 
               {/* Payment Method Selector */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
-                  روش افزایش موجودی:
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-2">
+                  روش پرداخت و شارژ حساب:
                 </label>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <label
-                    onClick={() => setTopUpMethod("cartbecart")}
-                    className={`p-3 rounded-xl border cursor-pointer flex flex-col justify-between transition-all ${
-                      topUpMethod === "cartbecart"
-                        ? "border-teal-500 bg-teal-500/10 text-teal-900 dark:text-teal-200 font-bold"
-                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
-                    }`}
+                <div className="grid grid-cols-1 gap-2 text-xs">
+                  <div
+                    className="p-3.5 rounded-xl border border-teal-500 bg-teal-500/10 text-teal-900 dark:text-teal-200 font-bold flex items-center justify-between transition-all"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span>کارت‌به‌کارت هوشمند</span>
-                      <span className="w-3.5 h-3.5 rounded-full border border-teal-500 flex items-center justify-center">
-                        {topUpMethod === "cartbecart" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-teal-600 dark:bg-teal-400" />
-                        )}
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      <CreditCard className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                      <div>
+                        <span className="block text-xs font-bold text-slate-900 dark:text-white">کارت‌به‌کارت هوشمند (CartBeCart)</span>
+                        <span className="text-[11px] text-teal-600 dark:text-teal-400 font-normal">
+                          تأیید و افزایش اعتبار آنی با پایش پیامک بانک
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-teal-600 dark:text-teal-400 font-normal">
-                      تأیید آنی با پیامک بانک
+                    <span className="w-4 h-4 rounded-full border border-teal-500 flex items-center justify-center shrink-0">
+                      <span className="w-2 h-2 rounded-full bg-teal-600 dark:bg-teal-400" />
                     </span>
-                  </label>
-
-                  <label
-                    onClick={() => setTopUpMethod("direct")}
-                    className={`p-3 rounded-xl border cursor-pointer flex flex-col justify-between transition-all ${
-                      topUpMethod === "direct"
-                        ? "border-teal-500 bg-teal-500/10 text-teal-900 dark:text-teal-200 font-bold"
-                        : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span>شارژ مستقیم شتاب</span>
-                      <span className="w-3.5 h-3.5 rounded-full border border-teal-500 flex items-center justify-center">
-                        {topUpMethod === "direct" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-teal-600 dark:bg-teal-400" />
-                        )}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-normal">درگاه بانکی شتاب</span>
-                  </label>
+                  </div>
                 </div>
               </div>
 
@@ -2337,11 +2315,7 @@ export default function ProfilePage() {
                 className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white py-3 rounded-xl font-bold shadow-md hover:shadow-lg hover:shadow-teal-500/20 hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {isTopUpLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                <span>
-                  {topUpMethod === "cartbecart"
-                    ? "ادامه و انتقال کارت‌به‌کارت (CartBeCart)"
-                    : "تایید و اتصال به درگاه پرداخت"}
-                </span>
+                <span>ادامه و انتقال کارت‌به‌کارت (CartBeCart)</span>
               </button>
             </div>
           </div>
@@ -2806,7 +2780,7 @@ export default function ProfilePage() {
           customerName={user.name}
           customerPhone={user.phone || undefined}
           paymentType="WALLET_TOPUP"
-          onSuccess={(res) => {
+          onSuccess={async (res) => {
             setIsCardPaymentModalOpen(false);
             if (res.isManualReview) {
               showToast(
@@ -2818,15 +2792,8 @@ export default function ProfilePage() {
                 "success",
                 `کیف پول شما به مبلغ ${new Intl.NumberFormat("en-US").format(topUpAmount)} تومان با موفقیت شارژ گردید!`
               );
-              // Update wallet in UI state cleanly
-              if (user) {
-                const currentWallet = user.walletBalanceToman || 0;
-                const currentDirect = user.directDepositBalance || 0;
-                updateProfile({
-                  walletBalanceToman: currentWallet + topUpAmount,
-                  directDepositBalance: currentDirect + topUpAmount,
-                });
-              }
+              // Fetch latest accurate balance directly from server
+              await refreshUser();
             }
           }}
         />

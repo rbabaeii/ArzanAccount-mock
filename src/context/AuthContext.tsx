@@ -74,6 +74,7 @@ export interface AuthContextType {
   bindReferral: (referralCode: string) => Promise<{ success: boolean; message: string; user?: AuthUser }>;
   updatePassword: (newPassword: string, currentPassword?: string) => Promise<{ success: boolean; message: string }>;
   updateProfile: (data: Partial<AuthUser>) => Promise<{ success: boolean; user?: AuthUser; message?: string }>;
+  refreshUser: () => Promise<AuthUser | null>;
   topUpWallet: (amountToman: number) => Promise<{ success: boolean; newBalance?: number }>;
   requestWithdrawal: (data: {
     amountToman: number;
@@ -336,6 +337,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshUser = async (): Promise<AuthUser | null> => {
+    if (!user?.id) return null;
+    try {
+      const fresh = await api.getUserProfile(user.id);
+      if (fresh) {
+        setUser(fresh);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("arzan_cached_user", JSON.stringify(fresh));
+        }
+        return fresh;
+      }
+    } catch (err) {
+      console.error("Failed to refresh user profile:", err);
+    }
+    return null;
+  };
+
   const topUpWallet = async (amountToman: number) => {
     if (!user) throw new Error("کاربر وارد نشده است.");
     try {
@@ -504,6 +522,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         bindReferral,
         updatePassword,
         updateProfile,
+        refreshUser,
         topUpWallet,
         requestWithdrawal,
         convertClubPoints,

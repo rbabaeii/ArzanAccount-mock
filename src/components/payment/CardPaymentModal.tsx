@@ -400,20 +400,41 @@ export default function CardPaymentModal({
               {/* Exact Amount Notice */}
               <div className="p-4 rounded-2xl bg-gradient-to-br from-teal-500/10 to-emerald-500/5 border border-teal-500/30 text-center space-y-2">
                 <span className="text-[11px] font-bold text-teal-700 dark:text-teal-300">
-                  مبلغ دقیق قابل واریز (با ارقام اختصاصی سامانه):
+                  مبلغ دقیق و اختصاصی قابل واریز:
                 </span>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono dir-ltr">
-                    {formatNumber(paymentData.uniqueAmountToman)}
-                  </span>
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">تومان</span>
-                </div>
-                <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono dir-ltr">
-                  معادل {formatNumber(paymentData.uniqueAmountRial)} ریال
+                <div className="flex items-center justify-center gap-3">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono dir-ltr select-all">
+                      {formatNumber(paymentData.uniqueAmountRial || paymentData.amountRial)}
+                    </span>
+                    <span className="text-sm font-bold text-teal-700 dark:text-teal-300">ریال</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleCopy(
+                        String(paymentData.uniqueAmountRial || paymentData.amountRial),
+                        "amountRial"
+                      )
+                    }
+                    className="px-2.5 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-700 dark:text-teal-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                    title="کپی مبلغ به ریال"
+                  >
+                    {copiedField === "amountRial" ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[3]" />
+                        <span className="text-[10px]">کپی شد!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="text-[10px]">کپی مبلغ</span>
+                      </>
+                    )}
+                  </button>
                 </div>
                 <div className="text-[11px] text-teal-900 dark:text-teal-200 bg-teal-50 dark:bg-teal-950/60 p-2.5 rounded-xl border border-teal-200 dark:border-teal-800/60 leading-relaxed font-medium">
-                  ⚠️ جهت تایید خودکار و آنی، لطفاً <strong>دقیقاً همین مبلغ فوق</strong> را بدون گرد کردن از
-                  اپلیکیشن همراه بانک خود انتقال دهید.
+                  ⚠️ جهت تایید خودکار و آنی، لطفاً <strong>دقیقاً همین مبلغ فوق (به ریال)</strong> را بدون کم و کاست یا گرد کردن از اپلیکیشن همراه بانک خود انتقال دهید.
                 </div>
               </div>
 
@@ -545,7 +566,8 @@ export default function CardPaymentModal({
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
                 <span className="text-slate-500 dark:text-slate-400">مبلغ واریزی:</span>
                 <span className="font-bold text-slate-900 dark:text-white font-mono">
-                  {formatNumber(paymentData?.uniqueAmountToman || amountToman)} تومان
+                  {formatNumber(paymentData?.uniqueAmountRial || paymentData?.amountRial || amountToman * 10)} ریال
+                  <span className="text-slate-400 font-normal text-[11px] mr-1.5">({formatNumber(amountToman)} تومان)</span>
                 </span>
               </div>
 
