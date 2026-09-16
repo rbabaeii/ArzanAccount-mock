@@ -32,7 +32,27 @@ interface JalaliDatePickerInputProps {
   name?: string;
 }
 
-export default function JalaliDatePickerInput({
+export default function JalaliDatePickerInput(props: JalaliDatePickerInputProps) {
+  // If time picker mode requested, delegate to custom minimal TimePickerInput
+  if (props.onlyTime) {
+    return (
+      <TimePickerInput
+        value={props.value}
+        onChange={props.onChange}
+        placeholder={props.placeholder}
+        className={props.className}
+        disabled={props.disabled}
+        required={props.required}
+        id={props.id}
+        name={props.name}
+      />
+    );
+  }
+
+  return <JalaliDatePickerInner {...props} />;
+}
+
+function JalaliDatePickerInner({
   value,
   onChange,
   placeholder,
@@ -48,22 +68,6 @@ export default function JalaliDatePickerInput({
   id,
   name,
 }: JalaliDatePickerInputProps) {
-  // If time picker mode requested, delegate to custom minimal TimePickerInput
-  if (onlyTime) {
-    return (
-      <TimePickerInput
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className={className}
-        disabled={disabled}
-        required={required}
-        id={id}
-        name={name}
-      />
-    );
-  }
-
   const isOnlyDate = onlyDate !== undefined ? onlyDate : true;
   const defaultPlaceholder = placeholder || "۱۴۰۳/۰۱/۰۱";
   const inputRef = useRef<HTMLInputElement>(null);
