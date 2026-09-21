@@ -455,6 +455,40 @@ export const api = {
     return request<{ logs: any[]; total: number }>(`/email/logs${qs ? `?${qs}` : ""}`);
   },
 
+  // SMS Gateway Management
+  getSmsSettings: () => request<any>("/sms/settings"),
+
+  updateSmsSettings: (config: any, user = "مدیر ارشد") =>
+    request<any>("/sms/settings", {
+      method: "PUT",
+      body: JSON.stringify({ config, user }),
+    }),
+
+  sendTestSms: (data: { to: string; bodyId: number; args?: (string | number)[] }) =>
+    request<any>("/sms/test", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getSmsStats: () => request<any>("/sms/stats"),
+
+  getSmsLogs: (params?: {
+    status?: string;
+    template?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.status && params.status !== "all") q.set("status", params.status);
+    if (params?.template && params.template !== "all") q.set("template", params.template);
+    if (params?.search) q.set("search", params.search);
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+    const qs = q.toString();
+    return request<{ items: any[]; total: number; limit: number; offset: number }>(`/sms/logs${qs ? `?${qs}` : ""}`);
+  },
+
   sendOrderReceiptEmail: (orderData: any) =>
     request<any>("/email/send-order-receipt", {
       method: "POST",

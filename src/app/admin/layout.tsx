@@ -40,6 +40,7 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
+  Smartphone,
 } from "lucide-react";
 
 interface NavItem {
@@ -117,6 +118,7 @@ export default function AdminLayout({
     if (itemHref === "/admin/withdrawals") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (itemHref === "/admin/payments") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (itemHref === "/admin/settings/email") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
+    if (itemHref === "/admin/settings/sms") return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (user?.role === "SUPER_ADMIN") return true;
     if (itemHref === "/admin") return true;
     if (user?.role === "CATALOG_MANAGER") {
@@ -137,6 +139,7 @@ export default function AdminLayout({
     if (pathname.startsWith("/admin/withdrawals")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (pathname.startsWith("/admin/payments")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (pathname.startsWith("/admin/settings/email")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
+    if (pathname.startsWith("/admin/settings/sms")) return user?.role === "SUPER_ADMIN" || user?.role === "FINANCE_ADMIN";
     if (user?.role === "SUPER_ADMIN") return true;
     if (pathname === "/admin") return true;
     if (user?.role === "CATALOG_MANAGER") {
@@ -251,6 +254,13 @@ export default function AdminLayout({
           title: "تنظیمات سرور ایمیل (SMTP)",
           href: "/admin/settings/email",
           icon: <Mail className="w-4 h-4" />,
+        },
+        {
+          title: "تنظیمات و تاریخچه پیامک (SMS)",
+          href: "/admin/settings/sms",
+          icon: <Smartphone className="w-4 h-4" />,
+          badge: "پترن زنده",
+          badgeColor: "bg-teal-600/90 text-white font-bold",
         },
         {
           title: "تنظیمات عمومی سیستم",
