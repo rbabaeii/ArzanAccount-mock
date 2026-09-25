@@ -160,9 +160,7 @@ function LoginContent() {
       setStep("otp");
       setCountdown(30);
       setSuccessMessage(res.message);
-      if (res.code) {
-        setDisplayedOtp(res.code);
-      }
+      setDisplayedOtp(res.code || "11111");
       setOtp("");
     } else {
       setErrorMessage(res.message);
@@ -184,9 +182,7 @@ function LoginContent() {
       if (res.success) {
         setSuccessMessage(res.message);
         setCountdown(30);
-        if (res.code) {
-          setDisplayedOtp(res.code);
-        }
+        setDisplayedOtp(res.code || "11111");
       } else {
         setErrorMessage(res.message || "خطا در ارسال کد به ایمیل.");
       }
@@ -491,31 +487,30 @@ function LoginContent() {
               ) : (
                 <div className="space-y-4">
                   {/* Temporary Dev OTP Display Banner */}
-                  {displayedOtp && (
-                    <div className="p-3 bg-amber-500/10 dark:bg-amber-950/40 border-2 border-dashed border-amber-500/60 dark:border-amber-500/40 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-                          <Sparkles className="w-4 h-4" />
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[11px] font-bold block">کد موقت فعال‌سازی (نمایش جهت تست):</span>
-                          <span className="font-mono text-base font-extrabold tracking-widest text-amber-700 dark:text-amber-300">
-                            {displayedOtp}
-                          </span>
-                        </div>
+                  <div className="p-3.5 bg-amber-500/15 dark:bg-amber-500/20 border-2 border-dashed border-amber-500/80 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 dark:text-amber-200 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+                        <Sparkles className="w-4 h-4" />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOtp(displayedOtp);
-                          handleVerifyOtp(displayedOtp);
-                        }}
-                        className="w-full sm:w-auto px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer whitespace-nowrap"
-                      >
-                        جایگذاری و ورود خودکار ⚡
-                      </button>
+                      <div className="text-right">
+                        <span className="text-[11px] font-bold text-amber-800 dark:text-amber-200 block">کد تایید ورود (محیط تست):</span>
+                        <span className="font-mono text-base font-extrabold tracking-widest text-amber-950 dark:text-amber-300">
+                          {displayedOtp || "11111"}
+                        </span>
+                      </div>
                     </div>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = displayedOtp || "11111";
+                        setOtp(code);
+                        handleVerifyOtp(code);
+                      }}
+                      className="w-full sm:w-auto px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer whitespace-nowrap"
+                    >
+                      جایگذاری و ورود خودکار ⚡
+                    </button>
+                  </div>
 
                   <div className="text-center space-y-1">
                     <label className="block font-bold text-brand-dark dark:text-white text-xs sm:text-sm">

@@ -330,7 +330,7 @@ export const api = {
 
   // Auth & OTP
   sendOtp: (phone: string) =>
-    request<{ success: boolean; message: string }>("/auth/send-otp", {
+    request<{ success: boolean; message: string; code?: string }>("/auth/send-otp", {
       method: "POST",
       body: JSON.stringify({ phone }),
     }),
@@ -342,7 +342,7 @@ export const api = {
     }),
 
   sendDirectEmailOtp: (email: string) =>
-    request<{ success: boolean; message: string; email: string }>("/auth/send-email-otp-direct", {
+    request<{ success: boolean; message: string; email: string; code?: string }>("/auth/send-email-otp-direct", {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
@@ -587,7 +587,7 @@ export const api = {
 
   // Auth & Passwords
   sendEmailOtp: (phone: string) =>
-    request<{ success: boolean; message: string; maskedEmail: string }>("/auth/send-email-otp", {
+    request<{ success: boolean; message: string; maskedEmail: string; code?: string }>("/auth/send-email-otp", {
       method: "POST",
       body: JSON.stringify({ phone }),
     }),
