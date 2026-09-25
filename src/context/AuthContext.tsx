@@ -65,9 +65,9 @@ export interface AuthContextType {
   isLoginModalOpen: boolean;
   openLoginModal: () => void;
   closeLoginModal: () => void;
-  sendOtp: (phone: string) => Promise<{ success: boolean; message: string }>;
-  sendEmailOtp: (phone: string) => Promise<{ success: boolean; message: string; maskedEmail: string }>;
-  sendDirectEmailOtp: (email: string) => Promise<{ success: boolean; message: string }>;
+  sendOtp: (phone: string) => Promise<{ success: boolean; message: string; code?: string }>;
+  sendEmailOtp: (phone: string) => Promise<{ success: boolean; message: string; maskedEmail?: string; code?: string }>;
+  sendDirectEmailOtp: (email: string) => Promise<{ success: boolean; message: string; code?: string }>;
   verifyEmailOtp: (email: string, code: string, referralCode?: string) => Promise<{ success: boolean; message?: string; user?: AuthUser }>;
   verifyOtp: (phone: string, code: string, referralCode?: string) => Promise<{ success: boolean; message?: string; user?: AuthUser }>;
   loginWithPassword: (phone: string, password: string, referralCode?: string) => Promise<{ success: boolean; user?: AuthUser; message?: string }>;

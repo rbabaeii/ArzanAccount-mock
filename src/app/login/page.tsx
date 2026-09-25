@@ -104,6 +104,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState(referralParam);
   const [otp, setOtp] = useState("");
+  const [displayedOtp, setDisplayedOtp] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -159,6 +160,9 @@ function LoginContent() {
       setStep("otp");
       setCountdown(30);
       setSuccessMessage(res.message);
+      if (res.code) {
+        setDisplayedOtp(res.code);
+      }
       setOtp("");
     } else {
       setErrorMessage(res.message);
@@ -180,6 +184,9 @@ function LoginContent() {
       if (res.success) {
         setSuccessMessage(res.message);
         setCountdown(30);
+        if (res.code) {
+          setDisplayedOtp(res.code);
+        }
       } else {
         setErrorMessage(res.message || "خطا در ارسال کد به ایمیل.");
       }
@@ -483,6 +490,33 @@ function LoginContent() {
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Temporary Dev OTP Display Banner */}
+                  {displayedOtp && (
+                    <div className="p-3 bg-amber-500/10 dark:bg-amber-950/40 border-2 border-dashed border-amber-500/60 dark:border-amber-500/40 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[11px] font-bold block">کد موقت فعال‌سازی (نمایش جهت تست):</span>
+                          <span className="font-mono text-base font-extrabold tracking-widest text-amber-700 dark:text-amber-300">
+                            {displayedOtp}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtp(displayedOtp);
+                          handleVerifyOtp(displayedOtp);
+                        }}
+                        className="w-full sm:w-auto px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer whitespace-nowrap"
+                      >
+                        جایگذاری و ورود خودکار ⚡
+                      </button>
+                    </div>
+                  )}
+
                   <div className="text-center space-y-1">
                     <label className="block font-bold text-brand-dark dark:text-white text-xs sm:text-sm">
                       کد تایید ۵ رقمی پیامک‌شده:
