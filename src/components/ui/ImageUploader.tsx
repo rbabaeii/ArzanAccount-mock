@@ -75,9 +75,15 @@ export default function ImageUploader({
   const handleFileSelected = async (file: File) => {
     setErrorMessage(null);
 
+    // Reject SVG due to Strix Security finding (Stored XSS vulnerability)
+    if (file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg")) {
+      setErrorMessage("فرمت SVG به دلایل امنیتی مجاز نیست. لطفاً از JPG، PNG یا WEBP استفاده کنید.");
+      return;
+    }
+
     // Validate mime type
     if (!file.type.startsWith("image/")) {
-      setErrorMessage("تنها فایل‌های تصویری (JPG, PNG, WEBP, SVG, GIF) مجاز هستند.");
+      setErrorMessage("تنها فایل‌های تصویری (JPG, PNG, WEBP, GIF) مجاز هستند.");
       return;
     }
 
@@ -105,10 +111,17 @@ export default function ImageUploader({
     }, 120);
 
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("arzan_auth_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch(
         `${backendUrl}/api/v1/upload?folder=${folder}`,
         {
           method: "POST",
+          headers,
           body: formData,
         }
       );
@@ -234,7 +247,7 @@ export default function ImageUploader({
             type="file"
             ref={fileInputRef}
             onChange={handleFileInputChange}
-            accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+            accept="image/png,image/jpeg,image/webp,image/gif"
             className="hidden"
           />
 
@@ -265,7 +278,7 @@ export default function ImageUploader({
                     {placeholderText}
                   </p>
                   <p className="text-[11px] text-neutral-400 dark:text-slate-400">
-                    فرمت‌های مجاز: PNG, JPG, WEBP, SVG (حداکثر {maxSizeMB} مگابایت)
+                    فرمت‌های مجاز: PNG, JPG, WEBP (حداکثر {maxSizeMB} مگابایت)
                   </p>
                 </div>
               </div>

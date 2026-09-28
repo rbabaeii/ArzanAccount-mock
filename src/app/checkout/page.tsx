@@ -301,9 +301,6 @@ export default function CheckoutPage() {
       ? "link"
       : "credentials";
 
-    const computedStatus: "processing" | "delivered" =
-      isHybridOrder || activationItems.length > 0 ? "processing" : "delivered";
-
     const orderItems = cart.map((item) => {
       const p = calculateProductPrice(item.product);
       return {
@@ -316,27 +313,6 @@ export default function CheckoutPage() {
     });
 
     const accountCredentialsList = validatedCredentials;
-
-    // Instant accounts delivered right away in email / dashboard
-    const generatedInstantAccounts: string[] = instantItems.flatMap((item) => {
-      const accounts: string[] = [];
-      for (let q = 1; q <= item.quantity; q++) {
-        if (item.product.requiresLink) {
-          accounts.push(
-            `لینک فعال‌سازی خودکار (${item.product.customTitle}): ${
-              cleanTargetAccountLink || 'https://arzanaccount.com/activate/token-' + Math.random().toString(36).substring(2, 10)
-            }`
-          );
-        } else {
-          accounts.push(
-            `اکانت آنی (${item.product.customTitle} #${q}) -> کاربر: ${cleanEmail} | رمزعبور: ArzanPass!${Math.floor(
-              1000 + Math.random() * 9000
-            )}# (تحویل آنی)`
-          );
-        }
-      }
-      return accounts;
-    });
 
     let backendOrderNumber: string | undefined;
     let backendRes: any;
@@ -372,7 +348,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Local context sync
+    // Local context sync - initial order status MUST always start as pending
     const newOrder = createOrder({
       id: backendRes?.id,
       orderNumber: backendOrderNumber,
@@ -382,8 +358,8 @@ export default function CheckoutPage() {
       items: orderItems,
       totalPriceToman: finalTotalToman,
       totalPriceUsd: subtotalUsd,
-      status: computedStatus,
-      deliveredAccounts: generatedInstantAccounts,
+      status: "pending",
+      deliveredAccounts: [],
       paymentGateway: gateway,
       discountAppliedToman: discountToman,
       deliveryType: computedDeliveryType,
