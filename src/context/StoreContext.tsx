@@ -12,6 +12,7 @@ import {
 } from "@/data/mockData";
 import { api } from "@/lib/api";
 import { formatPrice, formatNumber, toEnglishDigits } from "@/lib/format";
+import { isCouponExpired } from "@/lib/date";
 
 export interface CalculatedPrice {
   rial: number;
@@ -48,9 +49,9 @@ interface StoreContextType {
   isBackendConnected: boolean;
 
   // Actions
-  createProduct: (product: Partial<Product>) => Promise<Product | undefined>;
-  toggleProductActive: (id: string) => Promise<void>;
-  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  createProduct: (product: Partial<Product>, adminInfo?: any) => Promise<Product | undefined>;
+  toggleProductActive: (id: string, adminInfo?: any) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>, adminInfo?: any) => Promise<void>;
   addCategory: (category: Omit<Category, "id">) => Promise<void>;
   updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -70,7 +71,11 @@ interface StoreContextType {
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
-  applyCoupon: (code: string) => Promise<{ success: boolean; message: string }>,
+  applyCoupon: (
+    code: string,
+    userContext?: { id?: string; phone?: string; email?: string } | null,
+    cartSubtotal?: number
+  ) => Promise<{ success: boolean; message: string }>;
   removeCoupon: () => void;
 
   createOrder: (orderData: Omit<Order, "id" | "orderNumber" | "createdAt"> & { orderNumber?: string; id?: string }) => Order;
@@ -83,7 +88,10 @@ interface StoreContextType {
   addAdminAuditLog: (log: Omit<AuditLog, "id" | "timestamp">) => void;
   getMaxAllowedPurchase: (product: Product) => number;
   addCoupon: (coupon: Omit<Coupon, "id">) => void;
+  addCoupons: (coupons: Omit<Coupon, "id">[]) => void;
+  updateCoupon: (couponId: string, updates: Partial<Coupon>) => void;
   toggleCoupon: (couponId: string) => void;
+  deleteCoupon: (couponId: string) => void;
   requestRefund: (orderId: string, reason: string, cardNumber?: string, sheba?: string) => Promise<{ success: boolean; message: string }>;
   processRefundOrder: (orderId: string, refundMethod: "bank_card" | "wallet", trackingCode?: string, receiptUrl?: string, adminName?: string) => void;
   rejectRefundOrder: (orderId: string, rejectionReason: string, newStatus?: Order["status"]) => void;
@@ -162,27 +170,67 @@ function mapBackendOrder(bo: any): Order {
     }
   }
 
-  let items: any[] = [];
-  if (Array.isArray(bo.items)) {
-    items = bo.items;
-  } else if (typeof bo.items === "string") {
+  let rawItems: any = bo.items;
+  if (typeof rawItems === "string") {
     try {
-      items = JSON.parse(bo.items);
+      rawItems = JSON.parse(rawItems);
     } catch {
-      items = [];
+      rawItems = [];
     }
+  }
+  if (Array.isArray(rawItems)) {
+    rawItems = rawItems.flat().filter(Boolean);
+  } else {
+    rawItems = [];
+  }
+
+  let parsedItems = rawItems.filter((it: any) => it && typeof it === "object" && !Array.isArray(it));
+
+  if (parsedItems.length === 0) {
+    let fallbackTitle = "محصول دیجیتال";
+    if (deliveredAccounts && deliveredAccounts.length > 0) {
+      const match = deliveredAccounts[0].match(/\(([^)]+)\)/);
+      if (match && match[1]) {
+        fallbackTitle = match[1].replace(/#\d+/g, "").trim();
+      }
+    }
+    parsedItems = [
+      {
+        productId: "prod-item",
+        productTitle: fallbackTitle,
+        quantity: 1,
+        priceToman: bo.totalPriceToman || 0,
+        priceUsd: bo.totalPriceUsd || 0,
+      },
+    ];
+  } else {
+    parsedItems = parsedItems.map((it: any) => {
+      const qty = Number(it.quantity) || 1;
+      let priceToman = Number(it.priceToman) || 0;
+      let priceUsd = Number(it.priceUsd) || 0;
+      if (priceToman === 0 && bo.totalPriceToman && parsedItems.length === 1) {
+        priceToman = Math.round(bo.totalPriceToman / qty);
+      }
+      if (priceUsd === 0 && bo.totalPriceUsd && parsedItems.length === 1) {
+        priceUsd = Number((bo.totalPriceUsd / qty).toFixed(2));
+      }
+      return {
+        productId: it.productId || "prod-item",
+        productTitle: it.productTitle || "محصول دیجیتال",
+        quantity: qty,
+        priceToman,
+        priceUsd,
+      };
+    });
   }
 
   return {
     id: bo.id,
     orderNumber: bo.orderNumber,
     externalOrderId: bo.externalOrderId || undefined,
-    createdAt: toEnglishDigits(
-      new Intl.DateTimeFormat("fa-IR", {
-        dateStyle: "short",
-        timeStyle: "short",
-      }).format(new Date(bo.createdAt || Date.now()))
-    ),
+    createdAt: bo.createdAt
+      ? new Date(bo.createdAt).toISOString()
+      : new Date().toISOString(),
     customerEmail: bo.customerEmail,
     customerPhone: bo.customerPhone || undefined,
     customerLink: bo.customerLink || undefined,
@@ -219,13 +267,7 @@ function mapBackendOrder(bo: any): Order {
           }).format(new Date(bo.refundedAt || bo.refundDate))
         )
       : undefined,
-    items: items.map((it: any) => ({
-      productId: it.productId || "prod-1",
-      productTitle: it.productTitle || "محصول دیجیتال",
-      quantity: it.quantity || 1,
-      priceToman: it.priceToman || 0,
-      priceUsd: it.priceUsd || 0,
-    })),
+    items: parsedItems,
   };
 }
 
@@ -412,16 +454,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Toggle Product Active (Storefront visibility)
-  const toggleProductActive = async (id: string) => {
+  const toggleProductActive = async (id: string, adminInfo?: any) => {
     // Optimistic UI update
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, isActive: !p.isActive } : p))
     );
 
     try {
-      await api.toggleProductActive(id, "مدیر فروشگاه");
+      let activeAdmin = adminInfo;
+      if (!activeAdmin && typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("arzan_auth_user");
+          if (stored) activeAdmin = JSON.parse(stored);
+        } catch {}
+      }
+
+      await api.toggleProductActive(id, activeAdmin);
       // Refresh audit logs
-      const logs = await api.getAuditLogs(20);
+      const logs = await api.getAuditLogs(30);
       if (Array.isArray(logs)) {
         setAuditLogs(
           logs.map((log: any) => ({
@@ -429,13 +479,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             action: log.action,
             details: log.details,
             user: log.user,
+            adminId: log.adminId,
+            adminName: log.adminName,
+            adminPhone: log.adminPhone,
             timestamp: toEnglishDigits(
               new Intl.DateTimeFormat("fa-IR", {
                 dateStyle: "short",
                 timeStyle: "short",
               }).format(new Date(log.createdAt))
             ),
-            type: (log.type as any) || "product_toggle",
+            type: (log.type as any) || "product",
           }))
         );
       }
@@ -449,12 +502,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Create new Product
-  const createProduct = async (productData: Partial<Product>) => {
+  const createProduct = async (productData: Partial<Product>, adminInfo?: any) => {
     try {
-      const created = await api.createProduct(productData, "مدیر فروشگاه");
+      let activeAdmin = adminInfo;
+      if (!activeAdmin && typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("arzan_auth_user");
+          if (stored) activeAdmin = JSON.parse(stored);
+        } catch {}
+      }
+
+      const created = await api.createProduct(productData, activeAdmin);
       if (created) {
         const mapped = mapBackendProduct(created);
         setProducts((prev) => [mapped, ...prev]);
+        const logs = await api.getAuditLogs(30);
+        if (Array.isArray(logs)) {
+          setAuditLogs(
+            logs.map((log: any) => ({
+              id: log.id,
+              action: log.action,
+              details: log.details,
+              user: log.user,
+              adminId: log.adminId,
+              adminName: log.adminName,
+              adminPhone: log.adminPhone,
+              timestamp: toEnglishDigits(
+                new Intl.DateTimeFormat("fa-IR", {
+                  dateStyle: "short",
+                  timeStyle: "short",
+                }).format(new Date(log.createdAt))
+              ),
+              type: (log.type as any) || "product",
+            }))
+          );
+        }
         return mapped;
       }
     } catch (error) {
@@ -464,13 +546,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Update Product details (Title, Margin, Category)
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
+  const updateProduct = async (id: string, updates: Partial<Product>, adminInfo?: any) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
     );
 
     try {
-      await api.updateProduct(id, updates, "مدیر فروشگاه");
+      let activeAdmin = adminInfo;
+      if (!activeAdmin && typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("arzan_auth_user");
+          if (stored) activeAdmin = JSON.parse(stored);
+        } catch {}
+      }
+
+      await api.updateProduct(id, updates, activeAdmin);
+      const logs = await api.getAuditLogs(30);
+      if (Array.isArray(logs)) {
+        setAuditLogs(
+          logs.map((log: any) => ({
+            id: log.id,
+            action: log.action,
+            details: log.details,
+            user: log.user,
+            adminId: log.adminId,
+            adminName: log.adminName,
+            adminPhone: log.adminPhone,
+            timestamp: toEnglishDigits(
+              new Intl.DateTimeFormat("fa-IR", {
+                dateStyle: "short",
+                timeStyle: "short",
+              }).format(new Date(log.createdAt))
+            ),
+            type: (log.type as any) || "product",
+          }))
+        );
+      }
     } catch (error) {
       console.error("Error updating product on backend:", error);
     }
@@ -787,12 +898,84 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAppliedCoupon(null);
   };
 
-  const applyCoupon = async (code: string) => {
+  const applyCoupon = async (
+    code: string,
+    userContext?: { id?: string; phone?: string; email?: string } | null,
+    cartSubtotal?: number
+  ) => {
     const cleanCode = code.trim().toUpperCase();
-    // Call backend validation endpoint
+
+    // 1) بررسی لوکال: کوپن‌های ذخیره‌شده (چه عمومی و چه کاربر محور)
+    const localCoupon = coupons.find((c) => c.code === cleanCode);
+    if (localCoupon) {
+      if (!localCoupon.isActive) {
+        return { success: false, message: "این کد تخفیف غیرفعال شده است." };
+      }
+      if (localCoupon.maxUsage && localCoupon.usageCount >= localCoupon.maxUsage) {
+        return { success: false, message: "ظرفیت استفاده از این کد تخفیف به پایان رسیده است." };
+      }
+      if (localCoupon.expiresAt && isCouponExpired(localCoupon.expiresAt)) {
+        return { success: false, message: "مهلت استفاده از این کد تخفیف به پایان رسیده است." };
+      }
+      if (cartSubtotal !== undefined && localCoupon.minOrderToman && cartSubtotal < localCoupon.minOrderToman) {
+        return {
+          success: false,
+          message: `حداقل مبلغ سفارش برای اعمال این کد تخفیف ${formatPrice(localCoupon.minOrderToman)} تومان است.`,
+        };
+      }
+
+      // بررسی اعتبار کد کاربر محور (اختصاصی)
+      if (
+        localCoupon.targetType === "USER" ||
+        localCoupon.targetUserId ||
+        (localCoupon.targetUserIds && localCoupon.targetUserIds.length > 0)
+      ) {
+        if (!userContext || !userContext.id) {
+          return {
+            success: false,
+            message: "این کد تخفیف اختصاصی است. لطفاً ابتدا وارد حساب کاربری خود شوید.",
+          };
+        }
+        const matchesUser =
+          (localCoupon.targetUserIds && localCoupon.targetUserIds.includes(userContext.id)) ||
+          (localCoupon.targetUsers &&
+            localCoupon.targetUsers.some(
+              (u) =>
+                u.id === userContext.id ||
+                (u.phone && userContext.phone && u.phone === userContext.phone) ||
+                (u.email && userContext.email && u.email.toLowerCase() === userContext.email.toLowerCase())
+            )) ||
+          (localCoupon.targetUserId && localCoupon.targetUserId === userContext.id) ||
+          (localCoupon.targetUserPhone && userContext.phone && localCoupon.targetUserPhone === userContext.phone) ||
+          (localCoupon.targetUserEmail &&
+            userContext.email &&
+            localCoupon.targetUserEmail.toLowerCase() === userContext.email.toLowerCase());
+
+        if (!matchesUser) {
+          return {
+            success: false,
+            message: "این کد تخفیف اختصاصی است و برای حساب کاربری شما صادر نشده است.",
+          };
+        }
+      }
+
+      setAppliedCoupon(localCoupon);
+      return { success: true, message: `کد تخفیف %${localCoupon.discountPercent} با موفقیت اعمال شد.` };
+    }
+
+    // 2) در غیر این صورت، استعلام از بک‌اند
     try {
-      const res = await api.validateCoupon(cleanCode);
+      const res = await api.validateCoupon(cleanCode, userContext?.id);
       if (res && res.success && res.coupon) {
+        if (res.coupon.expiresAt && isCouponExpired(res.coupon.expiresAt)) {
+          return { success: false, message: "مهلت استفاده از این کد تخفیف به پایان رسیده است." };
+        }
+        if (cartSubtotal !== undefined && res.coupon.minOrderToman && cartSubtotal < res.coupon.minOrderToman) {
+          return {
+            success: false,
+            message: `حداقل مبلغ سفارش برای اعمال این کد تخفیف ${formatPrice(res.coupon.minOrderToman)} تومان است.`,
+          };
+        }
         setAppliedCoupon(res.coupon);
         return { success: true, message: `کد تخفیف %${res.coupon.discountPercent} با موفقیت اعمال شد.` };
       }
@@ -816,7 +999,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...orderData,
       id: orderData.id || `ord-${Date.now()}`,
       orderNumber: orderData.orderNumber || `ARZ-${randomSuffix}`,
-      createdAt: "هم‌اکنون",
+      createdAt: new Date().toISOString(),
     };
     const updated = [newOrder, ...orders];
     saveOrders(updated);
@@ -1069,9 +1252,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     saveCoupons([...coupons, newC]);
   };
 
+  const addCoupons = (newCouponsList: Omit<Coupon, "id">[]) => {
+    const formatted: Coupon[] = newCouponsList.map((c, idx) => ({
+      ...c,
+      id: `coup-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+    }));
+    saveCoupons([...coupons, ...formatted]);
+  };
+
+  const updateCoupon = (couponId: string, updates: Partial<Coupon>) => {
+    const updated = coupons.map((c) => (c.id === couponId ? { ...c, ...updates } : c));
+    saveCoupons(updated);
+    if (appliedCoupon?.id === couponId) {
+      setAppliedCoupon({ ...appliedCoupon, ...updates });
+    }
+  };
+
   const toggleCoupon = (couponId: string) => {
     const updated = coupons.map((c) => (c.id === couponId ? { ...c, isActive: !c.isActive } : c));
     saveCoupons(updated);
+  };
+
+  const deleteCoupon = (couponId: string) => {
+    const updated = coupons.filter((c) => c.id !== couponId);
+    saveCoupons(updated);
+    if (appliedCoupon?.id === couponId) {
+      setAppliedCoupon(null);
+    }
   };
 
   // irMarket live sync triggered from Admin UI
@@ -1127,7 +1334,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addAdminAuditLog,
         getMaxAllowedPurchase,
         addCoupon,
+        addCoupons,
+        updateCoupon,
         toggleCoupon,
+        deleteCoupon,
         requestRefund,
         processRefundOrder,
         rejectRefundOrder,

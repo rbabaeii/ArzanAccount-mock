@@ -23,12 +23,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import AmbientGlow from "@/components/ui/AmbientGlow";
 import Card3D from "@/components/ui/Card3D";
 import { BreadcrumbJsonLd } from "@/components/seo/JsonLd";
 
 export default function CartPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const {
     cart,
     removeFromCart,
@@ -79,7 +81,10 @@ export default function CartPage() {
   const handleApplyCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!couponCode.trim()) return;
-    const res = await applyCoupon(couponCode);
+    setCouponFeedback(null);
+    // Wait briefly to allow React to render the cleared state
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const res = await applyCoupon(couponCode, user, subtotalToman);
     setCouponFeedback(res);
   };
 

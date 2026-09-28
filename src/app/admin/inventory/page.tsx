@@ -14,11 +14,14 @@ export default function AdminInventoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
+  const searchLower = search.toLowerCase();
   const filtered = products.filter(
     (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.customTitle.includes(search) ||
-      (p.externalId ? p.externalId.toString().includes(search) : false)
+      !searchLower ||
+      (p.name && p.name.toLowerCase().includes(searchLower)) ||
+      (p.customTitle && p.customTitle.toLowerCase().includes(searchLower)) ||
+      (p.externalId && p.externalId.toString().includes(searchLower)) ||
+      (p.tags && p.tags.some(t => t.toLowerCase().includes(searchLower)))
   );
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);

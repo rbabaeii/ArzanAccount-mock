@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatNumber } from "@/lib/format";
+import { z } from "zod";
 
 interface TagItem {
   name: string;
@@ -152,18 +153,26 @@ export default function AdminTagsPage() {
     }
   };
 
+  const tagSchema = z.object({
+    tagName: z.string().min(2, "نام برچسب باید حداقل ۲ کاراکتر باشد").max(50, "نام برچسب طولانی است"),
+  });
+
   // Add Tag
   const handleCreateTag = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTagName.trim()) return;
+    const val = tagSchema.safeParse({ tagName: newTagName.trim() });
+    if (!val.success) {
+      showToast(val.error.issues[0].message, "error");
+      return;
+    }
 
     setIsSubmittingAdd(true);
     try {
       await api.createTag({
-        tag: newTagName.trim(),
+        tag: val.data.tagName,
         productIds: newTagSelectedProducts,
       });
-      showToast(`برچسب «${newTagName.trim()}» با موفقیت اضافه شد.`);
+      showToast(`برچسب «${val.data.tagName}» با موفقیت اضافه شد.`);
       setIsAddModalOpen(false);
       setNewTagName("");
       setNewTagSelectedProducts([]);
@@ -179,15 +188,20 @@ export default function AdminTagsPage() {
   // Rename Tag
   const handleRenameTag = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!renameModalData || !renameModalData.newTag.trim()) return;
+    if (!renameModalData) return;
+    const val = tagSchema.safeParse({ tagName: renameModalData.newTag.trim() });
+    if (!val.success) {
+      showToast(val.error.issues[0].message, "error");
+      return;
+    }
 
     setIsSubmittingRename(true);
     try {
       await api.renameTag({
         oldTag: renameModalData.oldTag,
-        newTag: renameModalData.newTag.trim(),
+        newTag: val.data.tagName,
       });
-      showToast(`برچسب «${renameModalData.oldTag}» به «${renameModalData.newTag.trim()}» تغییر نام یافت.`);
+      showToast(`برچسب «${renameModalData.oldTag}» به «${val.data.tagName}» تغییر نام یافت.`);
       setRenameModalData(null);
       await fetchTags();
       await refreshFromBackend();

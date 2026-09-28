@@ -154,3 +154,5 @@ function JalaliDatePickerInner({
     </div>
   );
 }
+
+export { JalaliDatePickerInput };

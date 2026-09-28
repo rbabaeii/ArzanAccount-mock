@@ -27,7 +27,13 @@ import { LiveSearchDropdown } from "@/components/store/LiveSearchDropdown";
 import { formatPrice, formatNumber } from "@/lib/format";
 
 export default function Header() {
-  const { categories, settings, cart } = useStore();
+  const { categories, products, settings, cart } = useStore();
+  
+  const activeCategories = React.useMemo(() => {
+    return categories.filter(cat => 
+      products.some(p => p.categoryId === cat.id && p.isActive && p.inStock)
+    );
+  }, [categories, products]);
   const { user, isAuthenticated, isAdmin, openLoginModal, logout } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -340,7 +346,7 @@ export default function Header() {
                 />
                 <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm max-h-[70vh] sm:max-h-96 overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-slate-800 p-2 z-50 animate-fadeIn divide-y divide-neutral-100 dark:divide-slate-800">
                   <div className="p-2.5 flex items-center justify-between text-xs font-bold text-slate-800 dark:text-white sticky top-0 bg-white dark:bg-slate-900 z-10 border-b border-neutral-100 dark:border-slate-800">
-                    <span>همه دسته‌بندی‌ها ({categories.length})</span>
+                    <span>همه دسته‌بندی‌ها ({activeCategories.length})</span>
                     <Link
                       href="/categories"
                       onClick={() => setCategoryDropdownOpen(false)}
@@ -352,7 +358,7 @@ export default function Header() {
                   </div>
 
                   <div className="py-1.5 space-y-0.5">
-                    {categories.map((cat) => (
+                    {activeCategories.map((cat) => (
                       <Link
                         key={cat.id}
                         href={`/category/${cat.slug}`}
@@ -382,7 +388,7 @@ export default function Header() {
 
             {/* Top Categories Direct Pills */}
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {categories.slice(0, 5).map((cat) => (
+              {activeCategories.slice(0, 5).map((cat) => (
                 <Link
                   key={cat.id}
                   href={`/category/${cat.slug}`}

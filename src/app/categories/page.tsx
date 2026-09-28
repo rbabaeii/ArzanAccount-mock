@@ -66,32 +66,39 @@ export default function CategoriesArchivePage() {
   };
 
   // Map categories with stats, lowest starting price, and sample top items
+  // Only display categories that have active products
   const categoriesWithStats = useMemo(() => {
-    return categories.map((cat) => {
-      const catProducts = activeProducts.filter((p) => p.categoryId === cat.id);
-      const activeCount = catProducts.length;
-      const totalCount = products.filter((p) => p.categoryId === cat.id).length;
+    return categories
+      .map((cat) => {
+        const catProducts = activeProducts.filter(
+          (p) => p.categoryId === cat.id || p.categoryId === cat.slug
+        );
+        const activeCount = catProducts.length;
+        const totalCount = products.filter(
+          (p) => p.categoryId === cat.id || p.categoryId === cat.slug
+        ).length;
 
-      // Find lowest price
-      let minPriceToman: number | null = null;
-      if (catProducts.length > 0) {
-        minPriceToman = catProducts.reduce((min, p) => {
-          const price = calculateProductPrice(p).toman;
-          return min === null || price < min ? price : min;
-        }, null as number | null);
-      }
+        // Find lowest price
+        let minPriceToman: number | null = null;
+        if (catProducts.length > 0) {
+          minPriceToman = catProducts.reduce((min, p) => {
+            const price = calculateProductPrice(p).toman;
+            return min === null || price < min ? price : min;
+          }, null as number | null);
+        }
 
-      // Sample top 3 product names
-      const sampleItems = catProducts.slice(0, 3).map((p) => p.customTitle || p.name);
+        // Sample top 3 product names
+        const sampleItems = catProducts.slice(0, 3).map((p) => p.customTitle || p.name);
 
-      return {
-        ...cat,
-        activeCount,
-        totalCount,
-        minPriceToman,
-        sampleItems,
-      };
-    });
+        return {
+          ...cat,
+          activeCount,
+          totalCount,
+          minPriceToman,
+          sampleItems,
+        };
+      })
+      .filter((cat) => cat.activeCount > 0);
   }, [categories, activeProducts, products, calculateProductPrice]);
 
   // Filter categories by search
@@ -158,9 +165,9 @@ export default function CategoriesArchivePage() {
             <div className="flex flex-row items-center gap-4 bg-white/10 dark:bg-slate-800/40 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/20 shrink-0">
               <div className="text-center px-2">
                 <span className="text-2xl sm:text-4xl font-black text-amber-400 font-mono block">
-                  {categories.length}
+                  {categoriesWithStats.length}
                 </span>
-                <span className="text-[11px] text-teal-200 font-medium">دسته‌بندی فعال</span>
+                <span className="text-[11px] text-teal-200 font-medium">دسته‌بندی دارای محصول</span>
               </div>
               <div className="w-px h-10 bg-white/20" />
               <div className="text-center px-2">
@@ -313,7 +320,7 @@ export default function CategoriesArchivePage() {
               onClick={() => setSearchTerm("")}
               className="mt-2 inline-flex items-center gap-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-teal-500/20 active:scale-95 transition-all"
             >
-              <span>نمایش همه {categories.length} دسته‌بندی</span>
+              <span>نمایش همه {categoriesWithStats.length} دسته‌بندی دارای محصول</span>
             </button>
           </div>
         )}

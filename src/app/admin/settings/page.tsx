@@ -30,6 +30,7 @@ import {
   ExternalLink,
   Eye,
 } from "lucide-react";
+import { z } from "zod";
 
 const InstagramIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -117,6 +118,16 @@ export default function AdminGeneralSettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      setUploadError("تنها فایل‌های تصویری مجاز هستند.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("حجم فایل نباید بیشتر از ۵ مگابایت باشد.");
+      return;
+    }
+
     setUploadingTarget(target);
     setUploadError(null);
 
@@ -135,8 +146,27 @@ export default function AdminGeneralSettingsPage() {
     }
   };
 
+  const settingsSchema = z.object({
+    usdRate: z.number().min(10000, "نرخ دلار نمی‌تواند کمتر از ۱۰,۰۰۰ ریال باشد"),
+    margin: z.number().min(0, "حاشیه سود نمی‌تواند منفی باشد").max(1000, "حاشیه سود نامعتبر است"),
+    maxRatioDenominator: z.number().min(1, "مخرج کسر باید بزرگتر از صفر باشد"),
+    ratioThreshold: z.number().min(0, "آستانه استثنا نمی‌تواند منفی باشد"),
+    cashbackPercent: z.number().min(0).max(100, "درصد کش‌بک باید بین ۰ تا ۱۰۰ باشد"),
+    siteName: z.string().min(2, "نام تجاری باید حداقل ۲ کاراکتر باشد"),
+  });
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const val = settingsSchema.safeParse({
+      usdRate, margin, maxRatioDenominator, ratioThreshold, cashbackPercent, siteName
+    });
+
+    if (!val.success) {
+      setUploadError(val.error.issues[0].message);
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateSettings({

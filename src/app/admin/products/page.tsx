@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useStore } from "@/context/StoreContext";
 import { Product } from "@/types";
 import {
@@ -36,6 +37,23 @@ import Link from "next/link";
 import ImageUploader from "@/components/ui/ImageUploader";
 import Pagination from "@/components/ui/Pagination";
 import { formatPrice, formatNumber } from "@/lib/format";
+import { z } from "zod";
+
+const productSchema = z.object({
+  editTitle: z.string().min(2, "عنوان محصول باید حداقل ۲ کاراکتر باشد").max(120, "عنوان بسیار طولانی است"),
+  editCategoryId: z.string().min(1, "انتخاب دسته‌بندی الزامی است"),
+  editCostPriceUsd: z.number().min(0, "قیمت خرید نمی‌تواند منفی باشد"),
+  editRetailPriceUsd: z.number().min(0, "قیمت بازار نمی‌تواند منفی باشد"),
+  editMargin: z.number().min(0, "حاشیه سود نمی‌تواند منفی باشد"),
+  editMinQty: z.number().min(1, "حداقل تعداد باید ۱ یا بیشتر باشد"),
+  editMaxQty: z.number().min(1, "حداکثر تعداد باید ۱ یا بیشتر باشد"),
+  editStockCount: z.number().min(0, "موجودی نمی‌تواند منفی باشد"),
+  editSalePriceToman: z.string().optional().refine(val => !val || Number(val) > 0, "قیمت فروش باید بیشتر از صفر باشد"),
+  editDiscountPercent: z.string().optional().refine(val => !val || (Number(val) > 0 && Number(val) <= 100), "درصد تخفیف باید بین ۱ تا ۱۰۰ باشد"),
+}).refine((data) => data.editMinQty <= data.editMaxQty, {
+  message: "حداقل تعداد نمی‌تواند بیشتر از حداکثر تعداد باشد",
+  path: ["editMaxQty"],
+});
 
 export default function AdminProductsPage() {
   const {
@@ -50,14 +68,22 @@ export default function AdminProductsPage() {
 
   const [search, setSearch] = useState("");
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const s = params.get("search");
-      if (s) setSearch(s);
-      if (window.innerWidth < 640) setItemsPerPage(10);
+    const s = searchParams.get("search");
+    if (s !== null) {
+      setSearch(s);
+      setCurrentPage(1);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 640) {
+      setItemsPerPage(10);
     }
   }, []);
+
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [stockFilter, setStockFilter] = useState<"all" | "out_of_stock" | "in_stock">("all");
   const [requirementFilter, setRequirementFilter] = useState<"all" | "credentials" | "email" | "password" | "link" | "instant">("all");
@@ -106,6 +132,7 @@ export default function AdminProductsPage() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
 
   const PRESET_CLUSTERS = [
@@ -228,6 +255,7 @@ export default function AdminProductsPage() {
 
     setEditTags([]);
     setTagInputText("");
+    setValidationErrors({});
   };
 
   // Open Edit Modal
@@ -265,6 +293,7 @@ export default function AdminProductsPage() {
     setEditIsActive(Boolean(product.isActive));
     setEditIsFeatured(Boolean(product.isFeatured));
     setEditIsFlashDeal(Boolean(product.isFlashDeal));
+    setValidationErrors({});
   };
 
   // Save Modal
@@ -272,14 +301,32 @@ export default function AdminProductsPage() {
     e.preventDefault();
     if (!editingProduct) return;
 
+    const validationResult = productSchema.safeParse({
+      editTitle, editCategoryId, editCostPriceUsd, editRetailPriceUsd,
+      editMargin, editMinQty, editMaxQty, editStockCount,
+      editSalePriceToman, editDiscountPercent
+    });
+
+    if (!validationResult.success) {
+      const errs: Record<string, string> = {};
+      validationResult.error.issues.forEach((err: z.ZodIssue) => {
+        if (err.path[0]) errs[err.path[0] as string] = err.message;
+      });
+      setValidationErrors(errs);
+      setToastMessage("لطفاً خطاهای فرم را برطرف کنید.");
+      setTimeout(() => setToastMessage(null), 3500);
+      return;
+    }
+    setValidationErrors({});
+
     setIsSaving(true);
     try {
       await updateProduct(editingProduct.id, {
         customTitle: editTitle,
         categoryId: editCategoryId,
-        description: editDescription,
-        persianDescription: editPersianDescription,
-        badge: editBadge,
+        description: editDescription.replace(/<[^>]*>?/gm, '').trim(),
+        persianDescription: editPersianDescription.replace(/<[^>]*>?/gm, '').trim(),
+        badge: editBadge.trim(),
         costPriceUsd: editCostPriceUsd,
         retailPriceUsd: editRetailPriceUsd,
         customMarginPercent: editMargin,
@@ -312,10 +359,13 @@ export default function AdminProductsPage() {
 
   // Filter and sort products
   const filteredProducts = products.filter((p) => {
+    const searchLower = search.toLowerCase();
     const matchesSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.customTitle.includes(search) ||
-      (p.externalId ? p.externalId.toString().includes(search) : false);
+      !searchLower ||
+      (p.name && p.name.toLowerCase().includes(searchLower)) ||
+      (p.customTitle && p.customTitle.toLowerCase().includes(searchLower)) ||
+      (p.externalId && p.externalId.toString().includes(searchLower)) ||
+      (p.tags && p.tags.some(t => t.toLowerCase().includes(searchLower)));
 
     const matchesStatus =
       statusFilter === "all"
@@ -1054,9 +1104,10 @@ export default function AdminProductsPage() {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs outline-none font-bold text-neutral-900 dark:text-white"
+                      className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editTitle ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs outline-none font-bold text-neutral-900 dark:text-white`}
                       required
                     />
+                    {validationErrors.editTitle && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editTitle}</p>}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1067,7 +1118,7 @@ export default function AdminProductsPage() {
                       <select
                         value={editCategoryId}
                         onChange={(e) => setEditCategoryId(e.target.value)}
-                        className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs outline-none text-neutral-800 dark:text-slate-200"
+                        className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editCategoryId ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs outline-none text-neutral-800 dark:text-slate-200`}
                       >
                         {categories.map((c) => (
                           <option key={c.id} value={c.id}>
@@ -1075,6 +1126,7 @@ export default function AdminProductsPage() {
                           </option>
                         ))}
                       </select>
+                      {validationErrors.editCategoryId && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editCategoryId}</p>}
                     </div>
 
                     <div>
@@ -1136,13 +1188,14 @@ export default function AdminProductsPage() {
                           min="0"
                           value={editCostPriceUsd}
                           onChange={(e) => setEditCostPriceUsd(Number(e.target.value))}
-                          className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs font-mono font-bold outline-none text-slate-800 dark:text-slate-100"
+                          className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editCostPriceUsd ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs font-mono font-bold outline-none text-slate-800 dark:text-slate-100`}
                           required
                         />
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-slate-500 font-mono">
                           USD
                         </span>
                       </div>
+                      {validationErrors.editCostPriceUsd && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editCostPriceUsd}</p>}
                       <span className="text-[10px] text-neutral-400 dark:text-slate-500 mt-1 block">
                         قیمت تامین ما از irMarket
                       </span>
@@ -1160,12 +1213,13 @@ export default function AdminProductsPage() {
                           min="0"
                           value={editRetailPriceUsd}
                           onChange={(e) => setEditRetailPriceUsd(Number(e.target.value))}
-                          className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs font-mono font-bold outline-none text-slate-800 dark:text-slate-100"
+                          className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editRetailPriceUsd ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs font-mono font-bold outline-none text-slate-800 dark:text-slate-100`}
                         />
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-slate-500 font-mono">
                           USD
                         </span>
                       </div>
+                      {validationErrors.editRetailPriceUsd && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editRetailPriceUsd}</p>}
                       <span className="text-[10px] text-neutral-400 dark:text-slate-500 mt-1 block">
                         نرخ مصرف‌کننده رسمی بازار
                       </span>
@@ -1186,13 +1240,14 @@ export default function AdminProductsPage() {
                           max="200"
                           value={editMargin}
                           onChange={(e) => setEditMargin(Number(e.target.value))}
-                          className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs font-mono font-bold outline-none text-slate-800 dark:text-slate-100"
+                          className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editMargin ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} focus:border-admin-primary dark:focus:border-teal-400 rounded-lg py-2.5 px-3 text-xs font-mono font-bold outline-none text-slate-800 dark:text-slate-100`}
                           required
                         />
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-slate-500">
                           %
                         </span>
                       </div>
+                      {validationErrors.editMargin && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editMargin}</p>}
                       <span className="text-[10px] text-neutral-400 dark:text-slate-500 mt-1 block">
                         سود پیش‌فرض سراسری: %{settings.defaultMarginPercent}
                       </span>
@@ -1220,8 +1275,9 @@ export default function AdminProductsPage() {
                           placeholder="مثلاً: 30"
                           value={editDiscountPercent}
                           onChange={(e) => setEditDiscountPercent(e.target.value)}
-                          className="w-full bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 focus:border-amber-500 rounded-lg py-2 px-3 text-xs font-mono outline-none text-slate-800 dark:text-slate-100"
+                          className={`w-full bg-white dark:bg-slate-800 border ${validationErrors.editDiscountPercent ? 'border-rose-500' : 'border-amber-200 dark:border-slate-700'} focus:border-amber-500 rounded-lg py-2 px-3 text-xs font-mono outline-none text-slate-800 dark:text-slate-100`}
                         />
+                        {validationErrors.editDiscountPercent && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editDiscountPercent}</p>}
                       </div>
                       <div>
                         <label className="block font-semibold text-neutral-800 dark:text-slate-200 mb-1">
@@ -1233,8 +1289,9 @@ export default function AdminProductsPage() {
                           placeholder="مثلاً: 250000"
                           value={editSalePriceToman}
                           onChange={(e) => setEditSalePriceToman(e.target.value)}
-                          className="w-full bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 focus:border-amber-500 rounded-lg py-2 px-3 text-xs font-mono outline-none text-slate-800 dark:text-slate-100"
+                          className={`w-full bg-white dark:bg-slate-800 border ${validationErrors.editSalePriceToman ? 'border-rose-500' : 'border-amber-200 dark:border-slate-700'} focus:border-amber-500 rounded-lg py-2 px-3 text-xs font-mono outline-none text-slate-800 dark:text-slate-100`}
                         />
+                        {validationErrors.editSalePriceToman && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editSalePriceToman}</p>}
                       </div>
                     </div>
                   </div>
@@ -1422,8 +1479,9 @@ export default function AdminProductsPage() {
                         min="1"
                         value={editMinQty}
                         onChange={(e) => setEditMinQty(Number(e.target.value))}
-                        className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg py-2.5 px-3 text-xs outline-none font-mono"
+                        className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editMinQty ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} text-slate-800 dark:text-slate-200 rounded-lg py-2.5 px-3 text-xs outline-none font-mono`}
                       />
+                      {validationErrors.editMinQty && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editMinQty}</p>}
                     </div>
 
                     <div>
@@ -1435,8 +1493,9 @@ export default function AdminProductsPage() {
                         min="1"
                         value={editMaxQty}
                         onChange={(e) => setEditMaxQty(Number(e.target.value))}
-                        className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg py-2.5 px-3 text-xs outline-none font-mono"
+                        className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editMaxQty ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} text-slate-800 dark:text-slate-200 rounded-lg py-2.5 px-3 text-xs outline-none font-mono`}
                       />
+                      {validationErrors.editMaxQty && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editMaxQty}</p>}
                     </div>
                   </div>
 
@@ -1451,8 +1510,9 @@ export default function AdminProductsPage() {
                         min="0"
                         value={editStockCount}
                         onChange={(e) => setEditStockCount(Number(e.target.value))}
-                        className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg py-2.5 px-3 text-xs outline-none font-mono font-bold"
+                        className={`w-full bg-admin-bg dark:bg-slate-800 border ${validationErrors.editStockCount ? 'border-rose-500' : 'border-admin-borderLight dark:border-slate-700'} text-slate-800 dark:text-slate-200 rounded-lg py-2.5 px-3 text-xs outline-none font-mono font-bold`}
                       />
+                      {validationErrors.editStockCount && <p className="text-rose-500 text-[10px] mt-1 font-bold">{validationErrors.editStockCount}</p>}
                     </div>
 
                     <div className="flex items-center pt-6">

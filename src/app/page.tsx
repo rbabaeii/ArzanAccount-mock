@@ -125,11 +125,13 @@ export default function HomePage() {
     }
   };
 
-  // Count active products per category and sort descending
-  const categoriesWithCount = categories.map((cat) => ({
-    ...cat,
-    count: activeProducts.filter((p) => p.categoryId === cat.id).length,
-  }));
+  // Count active products per category, remove empty ones, and sort descending
+  const categoriesWithCount = categories
+    .map((cat) => ({
+      ...cat,
+      count: activeProducts.filter((p) => p.categoryId === cat.id).length,
+    }))
+    .filter((cat) => cat.count > 0);
 
   const sortedCategories = [...categoriesWithCount].sort((a, b) => b.count - a.count);
 
@@ -365,7 +367,7 @@ export default function HomePage() {
             href="/categories"
             className="text-xs font-bold text-brand-primary dark:text-teal-300 hover:text-brand-primaryDark flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-brand-border dark:border-slate-800 hover:border-brand-primary dark:hover:border-teal-500 px-3.5 py-2 rounded-xl transition-all shadow-2xs"
           >
-            <span>مشاهده همه دسته‌بندی‌ها ({categories.length} دسته)</span>
+            <span>مشاهده همه دسته‌بندی‌ها ({sortedCategories.length} دسته)</span>
             <ArrowLeft className="w-3.5 h-3.5" />
           </Link>
         </div>
@@ -403,7 +405,7 @@ export default function HomePage() {
               همه دسته‌بندی‌ها
             </h3>
             <span className="text-[10px] text-teal-200 mt-1 font-mono">
-              +{categories.length > 5 ? categories.length - 5 : 0} دسته دیگر
+              +{sortedCategories.length > 5 ? sortedCategories.length - 5 : 0} دسته دیگر
             </span>
           </Link>
         </div>
@@ -431,7 +433,7 @@ export default function HomePage() {
         </div>
 
         {/* Filter Chips (Top 5 categories + compact other categories selector) */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-400 dark:hover:scrollbar-thumb-slate-600">
           <button
             onClick={() => {
               setSelectedCategory("all");

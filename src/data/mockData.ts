@@ -270,10 +270,11 @@ export const initialCoupons: Coupon[] = [
     discountPercent: 20,
     maxDiscountToman: 150000,
     minOrderToman: 500000,
-    expiresAt: "۱۴۰۳/۰۷/۱۵",
+    expiresAt: "۱۴۰۶/۰۷/۱۵",
     usageCount: 45,
     maxUsage: 100,
     isActive: true,
+    targetType: "ALL",
   },
   {
     id: "coup-2",
@@ -281,10 +282,11 @@ export const initialCoupons: Coupon[] = [
     discountPercent: 10,
     maxDiscountToman: 80000,
     minOrderToman: 200000,
-    expiresAt: "۱۴۰۳/۱۲/۲۹",
+    expiresAt: "۱۴۰۶/۱۲/۲۹",
     usageCount: 182,
     maxUsage: 500,
     isActive: true,
+    targetType: "ALL",
   },
   {
     id: "coup-3",
@@ -292,10 +294,11 @@ export const initialCoupons: Coupon[] = [
     discountPercent: 15,
     maxDiscountToman: 200000,
     minOrderToman: 400000,
-    expiresAt: "۱۴۰۴/۰۱/۳۱",
+    expiresAt: "۱۴۰۶/۰۱/۳۱",
     usageCount: 12,
     maxUsage: 50,
     isActive: true,
+    targetType: "ALL",
   },
 ];
 

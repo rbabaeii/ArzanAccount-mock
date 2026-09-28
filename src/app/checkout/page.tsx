@@ -36,6 +36,7 @@ import { formatPrice, formatNumber, toEnglishDigits } from "@/lib/format";
 import AmbientGlow from "@/components/ui/AmbientGlow";
 import Card3D from "@/components/ui/Card3D";
 import AnimatedStepper from "@/components/ui/AnimatedStepper";
+import { checkoutFormSchema, getAccountCredentialSchema } from "@/validations/checkout.schema";
 
 interface AccountSlot {
   key: string;
@@ -211,47 +212,55 @@ export default function CheckoutPage() {
   const handleCompleteOrder = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    const cleanName = name.trim();
-    const cleanEmail = email.trim();
-    const cleanPhone = toEnglishDigits(phone).trim();
+    const formData = {
+      name: name,
+      phone: toEnglishDigits(phone),
+      email: email,
+      nationalCode: nationalCode,
+      targetAccountLink: targetAccountLink,
+      targetAccountComments: targetAccountComments,
+      agreed: agreed,
+    };
 
-    if (!cleanName) {
-      setStockError("لطفاً نام و نام خانوادگی خود را وارد نمایید.");
+    const parsed = checkoutFormSchema.safeParse(formData);
+    if (!parsed.success) {
+      setStockError(parsed.error.issues[0].message);
       return;
     }
-    if (!cleanPhone || !/^09\d{9}$/.test(cleanPhone)) {
-      setStockError("شماره موبایل باید با ۰۹ شروع شده و ۱۱ رقم باشد (مانند 09120000000).");
-      return;
-    }
-    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      setStockError("لطفاً یک آدرس ایمیل معتبر جهت ارسال فاکتور و لایسنس وارد نمایید.");
-      return;
-    }
-    if (!agreed) {
-      setStockError("لطفاً قوانین و شرایط خرید، حفظ محرمانگی و ضمانت سلامت اکانت را تایید نمایید.");
-      return;
-    }
+
+    const cleanName = parsed.data.name;
+    const cleanEmail = parsed.data.email;
+    const cleanPhone = parsed.data.phone;
+    const cleanNationalCode = parsed.data.nationalCode;
+    const cleanTargetAccountLink = parsed.data.targetAccountLink;
+    const cleanTargetAccountComments = parsed.data.targetAccountComments;
+
+    const validatedCredentials: Array<{ index: number; email: string; password?: string; productTitle: string }> = [];
 
     // Validate multi-quantity account credentials
     for (const slot of requiredAccountSlots) {
       const cred = accountCredentialsMap[slot.key];
-      if (slot.requiresEmail) {
-        if (!cred?.email || !cred.email.trim()) {
-          setStockError(`لطفاً ایمیل «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}» را وارد نمایید.`);
-          return;
+      
+      if (slot.requiresEmail || slot.requiresPassword) {
+        const schema = getAccountCredentialSchema(slot.requiresEmail, slot.requiresPassword);
+        const parsedCred = schema.safeParse({ email: cred?.email, password: cred?.password });
+        
+        if (!parsedCred.success) {
+            const errorMsg = parsedCred.error.issues[0].message;
+            setStockError(`خطا در «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}»: ${errorMsg}`);
+            return;
         }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cred.email.trim())) {
-          setStockError(`فرمت ایمیل «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}» نامعتبر است.`);
-          return;
-        }
-      }
-      if (slot.requiresPassword && (!cred?.password || !cred.password.trim())) {
-        setStockError(`لطفاً رمز عبور «اکانت شماره ${slot.globalIndex} - ${slot.productTitle}» را وارد نمایید.`);
-        return;
+
+        validatedCredentials.push({
+          index: slot.globalIndex,
+          email: parsedCred.data.email || "",
+          password: parsedCred.data.password,
+          productTitle: slot.productTitle,
+        });
       }
     }
 
-    if (needsLink && !targetAccountLink.trim()) {
+    if (needsLink && (!cleanTargetAccountLink || !cleanTargetAccountLink.trim())) {
       setStockError("لطفاً لینک مقصد (آدرس کانال / گروه / پیج / پروفایل) را وارد نمایید.");
       return;
     }
@@ -306,12 +315,7 @@ export default function CheckoutPage() {
       };
     });
 
-    const accountCredentialsList = requiredAccountSlots.map((slot) => ({
-      index: slot.globalIndex,
-      email: accountCredentialsMap[slot.key]?.email?.trim() || "",
-      password: accountCredentialsMap[slot.key]?.password?.trim() || undefined,
-      productTitle: slot.productTitle,
-    }));
+    const accountCredentialsList = validatedCredentials;
 
     // Instant accounts delivered right away in email / dashboard
     const generatedInstantAccounts: string[] = instantItems.flatMap((item) => {
@@ -320,12 +324,12 @@ export default function CheckoutPage() {
         if (item.product.requiresLink) {
           accounts.push(
             `لینک فعال‌سازی خودکار (${item.product.customTitle}): ${
-              targetAccountLink || 'https://arzanaccount.com/activate/token-' + Math.random().toString(36).substring(2, 10)
+              cleanTargetAccountLink || 'https://arzanaccount.com/activate/token-' + Math.random().toString(36).substring(2, 10)
             }`
           );
         } else {
           accounts.push(
-            `اکانت آنی (${item.product.customTitle} #${q}) -> کاربر: ${email} | رمزعبور: ArzanPass!${Math.floor(
+            `اکانت آنی (${item.product.customTitle} #${q}) -> کاربر: ${cleanEmail} | رمزعبور: ArzanPass!${Math.floor(
               1000 + Math.random() * 9000
             )}# (تحویل آنی)`
           );
@@ -340,9 +344,9 @@ export default function CheckoutPage() {
     // Backend registration
     try {
       backendRes = await api.createBackendOrder({
-        customerEmail: email,
-        customerPhone: phone,
-        customerLink: targetAccountLink || undefined,
+        customerEmail: cleanEmail,
+        customerPhone: cleanPhone,
+        customerLink: cleanTargetAccountLink || undefined,
         deliveryType: computedDeliveryType,
         targetAccountEmail: accountCredentialsList[0]?.email || undefined,
         targetAccountPassword: accountCredentialsList[0]?.password || undefined,
@@ -354,7 +358,7 @@ export default function CheckoutPage() {
         totalPriceToman: finalTotalToman,
         totalPriceUsd: subtotalUsd,
         paymentGateway: gateway,
-        deliveredAccounts: generatedInstantAccounts.length > 0 ? generatedInstantAccounts : undefined,
+        couponCode: appliedCoupon?.code || undefined,
       });
       if (backendRes && backendRes.orderNumber) {
         backendOrderNumber = backendRes.orderNumber;
@@ -372,9 +376,9 @@ export default function CheckoutPage() {
     const newOrder = createOrder({
       id: backendRes?.id,
       orderNumber: backendOrderNumber,
-      customerEmail: email,
-      customerPhone: phone,
-      customerLink: targetAccountLink || undefined,
+      customerEmail: cleanEmail,
+      customerPhone: cleanPhone,
+      customerLink: cleanTargetAccountLink || undefined,
       items: orderItems,
       totalPriceToman: finalTotalToman,
       totalPriceUsd: subtotalUsd,

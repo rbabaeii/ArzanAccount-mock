@@ -31,7 +31,12 @@ import {
   Users,
   User,
   ArrowUpRight,
+  Calendar,
 } from "lucide-react";
+import { parseOrderDate, toPersianDate } from "@/lib/date";
+import { JalaliDatePickerInput } from "@/components/ui/JalaliDatePickerInput";
+
+type TimeRangeType = "all" | "today" | "yesterday" | "7d" | "30d" | "90d" | "custom";
 
 export default function AdminPaymentsPage() {
   const { user: currentAdmin } = useAuth();
@@ -43,6 +48,9 @@ export default function AdminPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [userIdFilter, setUserIdFilter] = useState<string>("");
   const [userFilterName, setUserFilterName] = useState<string>("");
+  const [timeRange, setTimeRange] = useState<TimeRangeType>("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Modals
@@ -107,6 +115,7 @@ export default function AdminPaymentsPage() {
         type: typeFilter,
         userId: userIdFilter || undefined,
         search: searchTerm,
+        limit: 500,
         role: currentAdmin?.role || "SUPER_ADMIN",
       });
       if (res && res.items) {
@@ -231,10 +240,89 @@ export default function AdminPaymentsPage() {
     }
   };
 
+  // Date filtering logic
+  const isDateInRange = (dateInput?: string | Date | null) => {
+    if (timeRange === "all") return true;
+    const targetDate = parseOrderDate(dateInput);
+    const now = new Date();
+
+    if (timeRange === "today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start;
+    }
+    if (timeRange === "yesterday") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start && targetDate < end;
+    }
+    if (timeRange === "7d") {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "30d") {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "90d") {
+      const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "custom") {
+      if (customStartDate) {
+        const s = parseOrderDate(customStartDate);
+        s.setHours(0, 0, 0, 0);
+        if (targetDate < s) return false;
+      }
+      if (customEndDate) {
+        const e = parseOrderDate(customEndDate);
+        e.setHours(23, 59, 59, 999);
+        if (targetDate > e) return false;
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const getTimeRangeLabel = () => {
+    switch (timeRange) {
+      case "today":
+        return `امروز (${toPersianDate(new Date())})`;
+      case "yesterday": {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return `دیروز (${toPersianDate(y)})`;
+      }
+      case "7d":
+        return "۷ روز اخیر";
+      case "30d":
+        return "۳۰ روز اخیر";
+      case "90d":
+        return "۳ ماه اخیر";
+      case "custom":
+        return `بازه شمسی ${customStartDate || "ابتدا"} تا ${customEndDate || "اکنون"}`;
+      default:
+        return "همه زمان‌ها";
+    }
+  };
+
+  const timeRangePresets = [
+    { id: "all", label: "همه زمان‌ها" },
+    { id: "today", label: "امروز" },
+    { id: "yesterday", label: "دیروز" },
+    { id: "7d", label: "۷ روز اخیر" },
+    { id: "30d", label: "۳۰ روز اخیر" },
+    { id: "90d", label: "۳ ماه اخیر" },
+    { id: "custom", label: "بازه انتخابی تقویم" },
+  ] as const;
+
+  // Filter payments by time range first
+  const scopedPayments = payments.filter((p) => isDateInRange(p.createdAt));
+
   // Stats calculation
-  const pendingReviewCount = payments.filter((p) => p.status === "MANUAL_REVIEW").length;
-  const autoVerifiedCount = payments.filter((p) => p.status === "PAID").length;
-  const approvedCount = payments.filter((p) => p.status === "APPROVED").length;
+  const pendingReviewCount = scopedPayments.filter((p) => p.status === "MANUAL_REVIEW").length;
+  const autoVerifiedCount = scopedPayments.filter((p) => p.status === "PAID").length;
+  const approvedCount = scopedPayments.filter((p) => p.status === "APPROVED").length;
+  const scopedTotalCount = scopedPayments.length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -349,6 +437,88 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
+      {/* Time Range Filter Bar */}
+      <div className="space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>تفکیک بازه زمانی:</span>
+            </span>
+            <span className="text-xs font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2.5 py-1 rounded-lg border border-teal-200/50 dark:border-teal-800/50">
+              {getTimeRangeLabel()}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 text-xs">
+            {timeRangePresets.map((pill) => {
+              const isActive = timeRange === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  onClick={() => setTimeRange(pill.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? "bg-teal-600 text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60"
+                  }`}
+                >
+                  {pill.id === "yesterday" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Collapsible Jalali Date Picker */}
+        {timeRange === "custom" && (
+          <div className="p-4 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60 rounded-xl flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              <span className="font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4" />
+                انتخاب بازه دقیق تقویم شمسی:
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">از تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customStartDate}
+                    onChange={setCustomStartDate}
+                    placeholder="۱۴۰۳/۰۱/۰۱"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">تا تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customEndDate}
+                    onChange={setCustomEndDate}
+                    placeholder="امروز"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(customStartDate || customEndDate) && (
+              <button
+                onClick={() => {
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                }}
+                className="text-xs text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>پاکسازی بازه</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Pending Review Card */}
@@ -411,10 +581,10 @@ export default function AdminPaymentsPage() {
           </div>
           <div className="relative z-10 min-w-0">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium block">
-              کل تراکنش‌ها
+              تراکنش‌های بازه انتخابی
             </span>
             <div className="text-xl font-black font-mono text-slate-900 dark:text-white mt-1 tracking-tight flex items-center gap-2">
-              <span>{totalCount}</span>
+              <span>{scopedTotalCount}</span>
               <span className="text-xs font-normal text-slate-400 font-sans">تراکنش</span>
             </div>
           </div>
@@ -510,7 +680,7 @@ export default function AdminPaymentsPage() {
             <RefreshCw className="w-8 h-8 text-teal-500 animate-spin mx-auto" />
             <p className="text-xs text-slate-500">در حال بارگذاری تراکنش‌ها...</p>
           </div>
-        ) : payments.length === 0 ? (
+        ) : scopedPayments.length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <CreditCard className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto" />
             <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
@@ -535,7 +705,7 @@ export default function AdminPaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {payments.map((p) => (
+                {scopedPayments.map((p) => (
                   <tr
                     key={p.id}
                     className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
@@ -690,11 +860,8 @@ export default function AdminPaymentsPage() {
                     <td className="py-3.5 px-4">{getStatusBadge(p.status)}</td>
 
                     {/* Date */}
-                    <td className="py-3.5 px-4 text-slate-500 text-[11px] whitespace-nowrap">
-                      {new Intl.DateTimeFormat("fa-IR", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      }).format(new Date(p.createdAt))}
+                    <td className="py-3.5 px-4 text-slate-500 text-[11px] whitespace-nowrap font-mono">
+                      {toPersianDate(p.createdAt)}
                     </td>
 
                     {/* Actions */}

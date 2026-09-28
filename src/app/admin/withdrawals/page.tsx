@@ -29,6 +29,10 @@ import {
   ExternalLink,
   Users,
 } from "lucide-react";
+import { parseOrderDate, toPersianDate } from "@/lib/date";
+import { JalaliDatePickerInput } from "@/components/ui/JalaliDatePickerInput";
+
+type TimeRangeType = "all" | "today" | "yesterday" | "7d" | "30d" | "90d" | "custom";
 
 export default function AdminWithdrawalsPage() {
   const { user: currentAdmin } = useAuth();
@@ -38,6 +42,9 @@ export default function AdminWithdrawalsPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [userIdFilter, setUserIdFilter] = useState<string>("");
   const [userFilterName, setUserFilterName] = useState<string>("");
+  const [timeRange, setTimeRange] = useState<TimeRangeType>("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Modals for processing
@@ -134,8 +141,86 @@ export default function AdminWithdrawalsPage() {
     }
   };
 
+  // Date filtering logic
+  const isDateInRange = (dateInput?: string | Date | null) => {
+    if (timeRange === "all") return true;
+    const targetDate = parseOrderDate(dateInput);
+    const now = new Date();
+
+    if (timeRange === "today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start;
+    }
+    if (timeRange === "yesterday") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start && targetDate < end;
+    }
+    if (timeRange === "7d") {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "30d") {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "90d") {
+      const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "custom") {
+      if (customStartDate) {
+        const s = parseOrderDate(customStartDate);
+        s.setHours(0, 0, 0, 0);
+        if (targetDate < s) return false;
+      }
+      if (customEndDate) {
+        const e = parseOrderDate(customEndDate);
+        e.setHours(23, 59, 59, 999);
+        if (targetDate > e) return false;
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const getTimeRangeLabel = () => {
+    switch (timeRange) {
+      case "today":
+        return `امروز (${toPersianDate(new Date())})`;
+      case "yesterday": {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return `دیروز (${toPersianDate(y)})`;
+      }
+      case "7d":
+        return "۷ روز اخیر";
+      case "30d":
+        return "۳۰ روز اخیر";
+      case "90d":
+        return "۳ ماه اخیر";
+      case "custom":
+        return `بازه شمسی ${customStartDate || "ابتدا"} تا ${customEndDate || "اکنون"}`;
+      default:
+        return "همه زمان‌ها";
+    }
+  };
+
+  const timeRangePresets = [
+    { id: "all", label: "همه زمان‌ها" },
+    { id: "today", label: "امروز" },
+    { id: "yesterday", label: "دیروز" },
+    { id: "7d", label: "۷ روز اخیر" },
+    { id: "30d", label: "۳۰ روز اخیر" },
+    { id: "90d", label: "۳ ماه اخیر" },
+    { id: "custom", label: "بازه انتخابی تقویم" },
+  ] as const;
+
+  // Filter withdrawals by time range first
+  const scopedWithdrawals = withdrawals.filter((w) => isDateInRange(w.createdAt));
+
   // Filter by search
-  const filteredWithdrawals = withdrawals.filter((w) => {
+  const filteredWithdrawals = scopedWithdrawals.filter((w) => {
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase();
     const matchName = w.user?.name && w.user.name.toLowerCase().includes(term);
@@ -145,16 +230,16 @@ export default function AdminWithdrawalsPage() {
     return matchName || matchPhone || matchSheba || matchCard;
   });
 
-  const totalCount = withdrawals.length;
-  const pendingCount = withdrawals.filter((w) => w.status === "PENDING").length;
-  const approvedCount = withdrawals.filter((w) => w.status === "APPROVED").length;
-  const rejectedCount = withdrawals.filter((w) => w.status === "REJECTED").length;
-  const approvedTotalToman = withdrawals
+  const totalCount = scopedWithdrawals.length;
+  const pendingCount = scopedWithdrawals.filter((w) => w.status === "PENDING").length;
+  const approvedCount = scopedWithdrawals.filter((w) => w.status === "APPROVED").length;
+  const rejectedCount = scopedWithdrawals.filter((w) => w.status === "REJECTED").length;
+  const approvedTotalToman = scopedWithdrawals
     .filter((w) => w.status === "APPROVED")
     .reduce((sum, w) => sum + (w.amountToman || 0), 0);
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-12 font-sans">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 font-sans">
       {/* Toast */}
       {toast && (
         <div
@@ -198,6 +283,88 @@ export default function AdminWithdrawalsPage() {
             <span>به‌روزرسانی لحظه‌ای</span>
           </button>
         </div>
+      </div>
+
+      {/* Time Range Filter Bar */}
+      <div className="space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-admin-borderLight dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>تفکیک بازه زمانی:</span>
+            </span>
+            <span className="text-xs font-bold text-brand-primary dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2.5 py-1 rounded-lg border border-teal-200/50 dark:border-teal-800/50">
+              {getTimeRangeLabel()}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 text-xs">
+            {timeRangePresets.map((pill) => {
+              const isActive = timeRange === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  onClick={() => setTimeRange(pill.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? "bg-brand-primary text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60"
+                  }`}
+                >
+                  {pill.id === "yesterday" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Collapsible Jalali Date Picker */}
+        {timeRange === "custom" && (
+          <div className="p-4 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60 rounded-xl flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              <span className="font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4" />
+                انتخاب بازه دقیق تقویم شمسی:
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">از تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customStartDate}
+                    onChange={setCustomStartDate}
+                    placeholder="۱۴۰۳/۰۱/۰۱"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">تا تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customEndDate}
+                    onChange={setCustomEndDate}
+                    placeholder="امروز"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(customStartDate || customEndDate) && (
+              <button
+                onClick={() => {
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                }}
+                className="text-xs text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>پاکسازی بازه</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Overview Stat Cards */}
@@ -379,8 +546,8 @@ export default function AdminWithdrawalsPage() {
                         <span className="font-mono text-slate-600 dark:text-slate-300 font-bold block">
                           #{req.id.slice(-6).toUpperCase()}
                         </span>
-                        <span className="text-[11px] text-slate-400 mt-0.5 block">
-                          {new Date(req.createdAt).toLocaleDateString("fa-IR")}
+                        <span className="text-[11px] text-slate-400 mt-0.5 block font-mono">
+                          {toPersianDate(req.createdAt)}
                         </span>
                       </td>
 

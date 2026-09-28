@@ -171,7 +171,7 @@ export default function ProfilePage() {
   // Add Bank Card Modal State
   const [isAddCardOpen, setIsAddCardOpen] = useState(false);
   const [cardForm, setCardForm] = useState({
-    bankName: "بانک سامان",
+    bankName: "",
     cardNumber: "",
     sheba: "",
     ownerName: "",
@@ -224,75 +224,28 @@ export default function ProfilePage() {
     }
   };
 
-  // Parse Bank Cards from JSON or default list
+  // Parse Bank Cards from JSON
   const getBankCards = (): BankCardItem[] => {
     if (user?.bankCardsJson) {
       try {
         const parsed = JSON.parse(user.bankCardsJson);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch {}
     }
-    return [
-      {
-        id: "card-1",
-        bankName: "بانک سامان",
-        cardNumber: "6219 8610 9412 8841",
-        sheba: "IR820560086180001234567001",
-        ownerName: user?.name || "علیرضا تهرانی",
-        isDefault: true,
-      },
-      {
-        id: "card-2",
-        bankName: "بلو بانک (سامان)",
-        cardNumber: "5022 2910 7481 3320",
-        sheba: "IR540560000000009876543001",
-        ownerName: user?.name || "علیرضا تهرانی",
-        isDefault: false,
-      },
-      {
-        id: "card-3",
-        bankName: "بانک ملت",
-        cardNumber: "6104 3378 1904 5519",
-        sheba: "IR120120000000004561237001",
-        ownerName: user?.name || "علیرضا تهرانی",
-        isDefault: false,
-      },
-    ];
+    return [];
   };
 
-  // Parse Addresses from JSON or default list
+  // Parse Addresses from JSON
   const getAddresses = (): AddressItem[] => {
     if (user?.addressesJson) {
       try {
         const parsed = JSON.parse(user.addressesJson);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch {}
     }
-    return [
-      {
-        id: "addr-1",
-        title: "دفتر کار و شرکت",
-        receiverName: user?.name || "علیرضا تهرانی",
-        receiverPhone: user?.phone || "09181111111",
-        province: "تهران",
-        city: "تهران",
-        fullAddress: "بلوار نلسون ماندلا (جردن)، خیابان گل‌آذین، پلاک 24، طبقه 6، واحد 18",
-        postalCode: "1917714852",
-        isDefault: true,
-      },
-      {
-        id: "addr-2",
-        title: "منزل مسکونی",
-        receiverName: user?.name || "علیرضا تهرانی",
-        receiverPhone: user?.phone || "09181111111",
-        province: "تهران",
-        city: "تهران",
-        fullAddress: "سعادت‌آباد، خیابان علامه طباطبایی شمالی، نبش کوچه هجدهم، پلاک 5",
-        postalCode: "1997854120",
-        isDefault: false,
-      },
-    ];
+    return [];
   };
+
 
   const [bankCards, setBankCards] = useState<BankCardItem[]>(getBankCards());
   const [addresses, setAddresses] = useState<AddressItem[]>(getAddresses());
@@ -300,14 +253,24 @@ export default function ProfilePage() {
   // Save Personal Form
   const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate with Zod
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { updateProfileSchema } = require('@/validations/profile.schema');
+    const result = updateProfileSchema.safeParse(personalForm);
+    if (!result.success) {
+      showToast("error", result.error.issues[0].message);
+      return;
+    }
+    
     setIsSavingPersonal(true);
     try {
       await updateProfile({
-        name: personalForm.name.trim(),
-        email: personalForm.email.trim() || undefined,
-        nationalCode: personalForm.nationalCode.trim(),
-        birthDate: personalForm.birthDate.trim(),
-        jobTitle: personalForm.jobTitle.trim(),
+        name: result.data.name,
+        email: result.data.email?.trim() || undefined,
+        nationalCode: result.data.nationalCode?.trim() || undefined,
+        birthDate: result.data.birthDate?.trim() || undefined,
+        jobTitle: result.data.jobTitle?.trim() || undefined,
       });
       setIsEditingPersonal(false);
       showToast("success", "اطلاعات هویتی با موفقیت ذخیره و به‌روزرسانی شد.");
@@ -335,23 +298,36 @@ export default function ProfilePage() {
   // Handle Add Bank Card
   const handleAddCard = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cardForm.cardNumber || !cardForm.sheba) {
-      showToast("error", "لطفاً شماره کارت و شماره شبا را وارد کنید.");
+    if (!cardForm.cardNumber || !cardForm.ownerName) {
+      showToast("error", "لطفاً شماره کارت و نام صاحب کارت را وارد کنید.");
       return;
     }
+    const cardVal = validateIranianCardNumber(cardForm.cardNumber);
+    if (!cardVal.isValid) {
+      showToast("error", "شماره کارت وارد شده نامعتبر است. لطفاً اصلاح کنید.");
+      return;
+    }
+
+    const shebaVal = cardForm.sheba.trim() 
+      ? (cardForm.sheba.toUpperCase().startsWith("IR") ? cardForm.sheba.toUpperCase() : `IR${cardForm.sheba.toUpperCase()}`) 
+      : "";
+
+    // اگر نام بانک خالی بود، از اعتبارسنجی خودکار بخون
+    const finalBankName = cardForm.bankName.trim() || cardVal.bankName || "نامشخص";
+
     const newCard: BankCardItem = {
       id: `card-${Date.now()}`,
-      bankName: cardForm.bankName,
+      bankName: finalBankName,
       cardNumber: cardForm.cardNumber,
-      sheba: cardForm.sheba.toUpperCase().startsWith("IR") ? cardForm.sheba.toUpperCase() : `IR${cardForm.sheba.toUpperCase()}`,
-      ownerName: cardForm.ownerName.trim() || (user?.name || "مالک کارت"),
+      sheba: shebaVal,
+      ownerName: cardForm.ownerName.trim(),
       isDefault: bankCards.length === 0,
     };
     const updated = [newCard, ...bankCards];
     setBankCards(updated);
     await updateProfile({ bankCardsJson: JSON.stringify(updated) });
     setIsAddCardOpen(false);
-    setCardForm({ bankName: "بانک سامان", cardNumber: "", sheba: "", ownerName: "" });
+    setCardForm({ bankName: "", cardNumber: "", sheba: "", ownerName: "" });
     showToast("success", "کارت بانکی جدید با موفقیت اضافه شد.");
   };
 
@@ -484,6 +460,7 @@ export default function ProfilePage() {
   // Real-time validations for withdraw modal
   const cardValidation = withdrawForm.cardNumber.trim() ? validateIranianCardNumber(withdrawForm.cardNumber) : null;
   const shebaValidation = withdrawForm.sheba.trim() ? validateIranianSheba(withdrawForm.sheba) : null;
+  const addCardValidation = cardForm.cardNumber.trim() ? validateIranianCardNumber(cardForm.cardNumber) : null;
 
   // Handle Withdrawal Submit
   const handleSubmitWithdrawal = async (e: React.FormEvent) => {
@@ -559,16 +536,11 @@ export default function ProfilePage() {
   // Handle Save Password
   const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passwordForm.newPassword) {
-      showToast("error", "رمز عبور جدید را وارد فرمایید.");
-      return;
-    }
-    if (passwordForm.newPassword.length < 6) {
-      showToast("error", "رمز عبور جدید باید حداقل دارای ۶ کاراکتر باشد.");
-      return;
-    }
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      showToast("error", "تکرار رمز عبور جدید با رمز وارد شده مطابقت ندارد.");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { updatePasswordSchema } = require('@/validations/profile.schema');
+    const result = updatePasswordSchema.safeParse(passwordForm);
+    if (!result.success) {
+      showToast("error", result.error.issues[0].message);
       return;
     }
 
@@ -708,11 +680,6 @@ export default function ProfilePage() {
                     <h1 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white truncate">
                       {user.name || "کاربر گرامی"}
                     </h1>
-                    {/* Platinum VIP Badge */}
-                    <div className="flex items-center gap-1 bg-teal-50 dark:bg-teal-950/70 border border-teal-200 dark:border-teal-800/80 text-brand-primary dark:text-teal-300 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold shadow-xs hover:scale-105 transition-transform duration-200 cursor-default">
-                      <BadgeCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-primary dark:text-teal-400 shrink-0" />
-                      <span>سطح پلاتینیوم (VIP)</span>
-                    </div>
                     <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] sm:text-xs px-2 py-0.5 rounded-lg font-mono font-bold">
                       {customerId}
                     </span>
@@ -803,7 +770,7 @@ export default function ProfilePage() {
         {/* ========================================================================= */}
         {/* INTERACTIVE NAVIGATION TABS                                              */}
         {/* ========================================================================= */}
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 no-scrollbar scrollbar-none snap-x snap-mandatory">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-400 dark:hover:scrollbar-thumb-slate-600">
           <button
             onClick={() => setActiveTab("personal")}
             className={`flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl text-xs font-bold transition-all duration-200 shrink-0 snap-start hover:scale-105 active:scale-95 cursor-pointer ${
@@ -2514,14 +2481,20 @@ export default function ProfilePage() {
                       <div className="font-bold truncate text-[11px] sm:text-xs">{card.ownerName}</div>
                     </div>
                     <div className="text-left dir-ltr shrink-0">
-                      <div className="text-[9px] text-white/70 font-sans">شماره شبا:</div>
-                      <div
-                        onClick={() => copyToClipboard(card.sheba, "شماره شبا")}
-                        className="font-mono text-[10px] sm:text-[11px] font-bold cursor-pointer hover:opacity-80"
-                        title="کلیک جهت کپی شبا"
-                      >
-                        {card.sheba.slice(0, 10)}...{card.sheba.slice(-4)}
-                      </div>
+                      {card.sheba ? (
+                        <>
+                          <div className="text-[9px] text-white/70 font-sans">شماره شبا:</div>
+                          <div
+                            onClick={() => copyToClipboard(card.sheba, "شماره شبا")}
+                            className="font-mono text-[10px] sm:text-[11px] font-bold cursor-pointer hover:opacity-80"
+                            title="کلیک جهت کپی شبا"
+                          >
+                            {card.sheba.slice(0, 10)}...{card.sheba.slice(-4)}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-[10px] sm:text-[11px] text-white/50 italic mt-3 text-right">بدون شبا</div>
+                      )}
                     </div>
                     <button
                       onClick={() => handleDeleteCard(card.id)}
@@ -3219,40 +3192,67 @@ export default function ProfilePage() {
             <form onSubmit={handleAddCard} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  انتخاب بانک صادرکننده:
-                </label>
-                <select
-                  value={cardForm.bankName}
-                  onChange={(e) => setCardForm({ ...cardForm, bankName: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-2.5 px-3 outline-none"
-                >
-                  <option value="بانک سامان">بانک سامان</option>
-                  <option value="بلو بانک (سامان)">بلو بانک (Blu)</option>
-                  <option value="بانک ملت">بانک ملت</option>
-                  <option value="بانک پاسارگاد">بانک پاسارگاد</option>
-                  <option value="بانک ملی ایران">بانک ملی ایران</option>
-                  <option value="بانک تجارت">بانک تجارت</option>
-                  <option value="بانک آینده">بانک آینده</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  شماره ۱۶ رقمی کارت:
+                  نام بانک صادرکننده:
                 </label>
                 <input
                   type="text"
-                  value={cardForm.cardNumber}
-                  onChange={(e) => setCardForm({ ...cardForm, cardNumber: e.target.value })}
-                  placeholder="6219 8610 1234 5678"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-2.5 px-3 font-mono text-left dir-ltr outline-none"
+                  value={cardForm.bankName}
+                  onChange={(e) => setCardForm({ ...cardForm, bankName: e.target.value })}
+                  placeholder="مثال: بانک سامان"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-2.5 px-3 outline-none"
                   required
                 />
               </div>
 
               <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    شماره ۱۶ رقمی کارت:
+                  </label>
+                  {addCardValidation && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                      addCardValidation.isValid
+                        ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                        : "bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                    }`}>
+                      {addCardValidation.isValid ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                      <span>{addCardValidation.isValid ? addCardValidation.bankName : "کارت نامعتبر"}</span>
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={cardForm.cardNumber}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const valRes = validateIranianCardNumber(val);
+                    setCardForm(prev => ({
+                      ...prev,
+                      cardNumber: val,
+                      ...(valRes.isValid && valRes.bankName ? { bankName: valRes.bankName } : {})
+                    }));
+                  }}
+                  placeholder="6219 8610 1234 5678"
+                  maxLength={19}
+                  className={`w-full bg-slate-50 dark:bg-slate-800 border text-slate-900 dark:text-white rounded-xl py-2.5 px-3 font-mono text-left dir-ltr outline-none transition-colors ${
+                    addCardValidation
+                      ? addCardValidation.isValid
+                        ? "border-emerald-500/60 focus:border-emerald-500"
+                        : "border-rose-400 focus:border-rose-500"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
+                  required
+                />
+                {addCardValidation && !addCardValidation.isValid && cardForm.cardNumber.replace(/\D/g, '').length === 16 && (
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 mt-1 block">
+                    {addCardValidation.error}
+                  </span>
+                )}
+              </div>
+
+              <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  شماره شبا (IBAN):
+                  شماره شبا (IBAN) (اختیاری):
                 </label>
                 <input
                   type="text"
@@ -3260,7 +3260,6 @@ export default function ProfilePage() {
                   onChange={(e) => setCardForm({ ...cardForm, sheba: e.target.value })}
                   placeholder="IR120560000000001234567001"
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-2.5 px-3 font-mono text-left dir-ltr outline-none"
-                  required
                 />
               </div>
 
@@ -3274,6 +3273,7 @@ export default function ProfilePage() {
                   onChange={(e) => setCardForm({ ...cardForm, ownerName: e.target.value })}
                   placeholder={user.name || "علیرضا تهرانی"}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-2.5 px-3 outline-none"
+                  required
                 />
               </div>
 

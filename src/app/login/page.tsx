@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { phoneSchema, otpCodeSchema, loginWithPasswordSchema } from "@/validations/auth.schema";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/store/Header";
 import Footer from "@/components/store/Footer";
@@ -143,11 +144,13 @@ function LoginContent() {
   }, [step, countdown]);
 
   const handleSendPhoneOtp = async (targetPhone?: string) => {
-    const phoneNumber = (targetPhone || phone).trim();
-    if (!phoneNumber || !/^09\d{9}$/.test(phoneNumber)) {
-      setErrorMessage("شماره موبایل باید با ۰۹ شروع شده و ۱۱ رقم باشد (مانند 09180000000).");
+    const rawPhone = targetPhone || phone;
+    const phoneResult = phoneSchema.safeParse(rawPhone);
+    if (!phoneResult.success) {
+      setErrorMessage(phoneResult.error.issues[0].message);
       return;
     }
+    const phoneNumber = phoneResult.data;
 
     setErrorMessage(null);
     setIsLoading(true);
@@ -196,16 +199,17 @@ function LoginContent() {
   };
 
   const handleVerifyOtp = async (otpToVerify?: string) => {
-    const code = (otpToVerify || otp).trim();
-    if (!code || code.length < 5) {
-      setErrorMessage("کد تایید ۵ رقمی را کامل وارد نمایید.");
+    const rawCode = otpToVerify || otp;
+    const otpResult = otpCodeSchema.safeParse(rawCode);
+    if (!otpResult.success) {
+      setErrorMessage(otpResult.error.issues[0].message);
       return;
     }
 
     setErrorMessage(null);
     setIsLoading(true);
 
-    const res = await verifyOtp(phone.trim(), code, referralCode.trim() || undefined);
+    const res = await verifyOtp(phone.trim(), otpResult.data, referralCode.trim() || undefined);
     setIsLoading(false);
 
     if (res.success && res.user) {
@@ -231,20 +235,17 @@ function LoginContent() {
 
   const handleLoginWithPassword = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanPhone = phone.trim();
-    if (!cleanPhone) {
-      setErrorMessage("شماره موبایل را وارد نمایید.");
-      return;
-    }
-    if (!password.trim()) {
-      setErrorMessage("رمز عبور را وارد نمایید.");
+    
+    const result = loginWithPasswordSchema.safeParse({ phone, password, referralCode });
+    if (!result.success) {
+      setErrorMessage(result.error.issues[0].message);
       return;
     }
 
     setErrorMessage(null);
     setIsLoading(true);
 
-    const res = await loginWithPassword(cleanPhone, password, referralCode.trim() || undefined);
+    const res = await loginWithPassword(result.data.phone, result.data.password, result.data.referralCode || undefined);
     setIsLoading(false);
 
     if (res.success && res.user) {

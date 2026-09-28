@@ -28,7 +28,12 @@ import {
   Wallet,
   XCircle,
   Ban,
+  Calendar,
 } from "lucide-react";
+import { parseOrderDate, toPersianDate } from "@/lib/date";
+import { JalaliDatePickerInput } from "@/components/ui/JalaliDatePickerInput";
+
+type TimeRangeType = "all" | "today" | "yesterday" | "7d" | "30d" | "90d" | "custom";
 
 export default function AdminRefundsPage() {
   const { user } = useAuth();
@@ -38,6 +43,9 @@ export default function AdminRefundsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed" | "rejected">("all");
+  const [timeRange, setTimeRange] = useState<TimeRangeType>("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Modal for processing refund
@@ -104,6 +112,7 @@ export default function AdminRefundsPage() {
 
   useEffect(() => {
     fetchRefunds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.role]);
 
   const showToast = (type: "success" | "error", text: string) => {
@@ -244,8 +253,88 @@ export default function AdminRefundsPage() {
     );
   }
 
-  // Filtered requests
-  const filteredRefunds = refunds.filter((item) => {
+  // Date filtering logic
+  const isDateInRange = (dateInput?: string | Date | null) => {
+    if (timeRange === "all") return true;
+    const targetDate = parseOrderDate(dateInput);
+    const now = new Date();
+
+    if (timeRange === "today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start;
+    }
+    if (timeRange === "yesterday") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start && targetDate < end;
+    }
+    if (timeRange === "7d") {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "30d") {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "90d") {
+      const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "custom") {
+      if (customStartDate) {
+        const s = parseOrderDate(customStartDate);
+        s.setHours(0, 0, 0, 0);
+        if (targetDate < s) return false;
+      }
+      if (customEndDate) {
+        const e = parseOrderDate(customEndDate);
+        e.setHours(23, 59, 59, 999);
+        if (targetDate > e) return false;
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const getTimeRangeLabel = () => {
+    switch (timeRange) {
+      case "today":
+        return `امروز (${toPersianDate(new Date())})`;
+      case "yesterday": {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return `دیروز (${toPersianDate(y)})`;
+      }
+      case "7d":
+        return "۷ روز اخیر";
+      case "30d":
+        return "۳۰ روز اخیر";
+      case "90d":
+        return "۳ ماه اخیر";
+      case "custom":
+        return `بازه شمسی ${customStartDate || "ابتدا"} تا ${customEndDate || "اکنون"}`;
+      default:
+        return "همه زمان‌ها";
+    }
+  };
+
+  const timeRangePresets = [
+    { id: "all", label: "همه زمان‌ها" },
+    { id: "today", label: "امروز" },
+    { id: "yesterday", label: "دیروز" },
+    { id: "7d", label: "۷ روز اخیر" },
+    { id: "30d", label: "۳۰ روز اخیر" },
+    { id: "90d", label: "۳ ماه اخیر" },
+    { id: "custom", label: "بازه انتخابی تقویم" },
+  ] as const;
+
+  // Filter refunds by time range first
+  const scopedRefunds = refunds.filter((item) =>
+    isDateInRange(item.refundRequestedAt || item.createdAt || item.date || item.updatedAt)
+  );
+
+  // Filtered requests by search and status within the time range
+  const filteredRefunds = scopedRefunds.filter((item) => {
     const isRejected = Boolean(item.refundRejectionReason);
     const isCompleted = (item.status === "refunded" || Boolean(item.refundTrackingCode) || item.refundMethod === "wallet") && !isRejected;
     const isPending = !isCompleted && !isRejected;
@@ -267,20 +356,20 @@ export default function AdminRefundsPage() {
     );
   });
 
-  const totalRefundsCount = refunds.length;
-  const rejectedRefundsCount = refunds.filter((r) => Boolean(r.refundRejectionReason)).length;
-  const completedRefundsCount = refunds.filter(
+  const totalRefundsCount = scopedRefunds.length;
+  const rejectedRefundsCount = scopedRefunds.filter((r) => Boolean(r.refundRejectionReason)).length;
+  const completedRefundsCount = scopedRefunds.filter(
     (r) => (r.status === "refunded" || r.refundTrackingCode || r.refundMethod === "wallet") && !r.refundRejectionReason
   ).length;
-  const pendingRefundsCount = refunds.filter(
+  const pendingRefundsCount = scopedRefunds.filter(
     (r) => r.status !== "refunded" && !r.refundTrackingCode && !r.refundRejectionReason
   ).length;
-  const totalRefundedSum = refunds
+  const totalRefundedSum = scopedRefunds
     .filter((r) => (r.status === "refunded" || r.refundTrackingCode || r.refundMethod === "wallet") && !r.refundRejectionReason)
     .reduce((acc, curr) => acc + (curr.refundAmountToman || curr.totalPriceToman || 0), 0);
 
   return (
-    <div className="p-6 md:p-8 space-y-8 animate-fadeIn max-w-7xl mx-auto">
+    <div className="p-6 md:p-8 space-y-6 animate-fadeIn max-w-7xl mx-auto">
       {/* Toast Notification */}
       {toastMessage && (
         <div
@@ -300,7 +389,7 @@ export default function AdminRefundsPage() {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-xs">
@@ -325,6 +414,88 @@ export default function AdminRefundsPage() {
             <span>به‌روزرسانی لیست</span>
           </button>
         </div>
+      </div>
+
+      {/* Time Range Filter Bar */}
+      <div className="space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-neutral-200 dark:border-slate-800 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <span>تفکیک بازه زمانی:</span>
+            </span>
+            <span className="text-xs font-bold text-brand-primary dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2.5 py-1 rounded-lg border border-teal-200/50 dark:border-teal-800/50">
+              {getTimeRangeLabel()}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 text-xs">
+            {timeRangePresets.map((pill) => {
+              const isActive = timeRange === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  onClick={() => setTimeRange(pill.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? "bg-brand-primary text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60"
+                  }`}
+                >
+                  {pill.id === "yesterday" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                  {pill.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Collapsible Jalali Date Picker */}
+        {timeRange === "custom" && (
+          <div className="p-4 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60 rounded-xl flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              <span className="font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4" />
+                انتخاب بازه دقیق تقویم شمسی:
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">از تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customStartDate}
+                    onChange={setCustomStartDate}
+                    placeholder="۱۴۰۳/۰۱/۰۱"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">تا تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customEndDate}
+                    onChange={setCustomEndDate}
+                    placeholder="امروز"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(customStartDate || customEndDate) && (
+              <button
+                onClick={() => {
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                }}
+                className="text-xs text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>پاکسازی بازه</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* KPI Stats */}
@@ -489,15 +660,19 @@ export default function AdminRefundsPage() {
 
                   return (
                     <tr key={item.id || item.orderNumber} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      {/* Order Number */}
-                      <td className="py-4 px-4 font-mono font-bold text-slate-900 dark:text-white">
+                      {/* Order Number & Date */}
+                      <td className="py-4 px-4 font-mono">
                         <Link
                           href={`/admin/orders?search=${item.orderNumber}`}
-                          className="text-brand-primary dark:text-teal-400 hover:underline flex items-center gap-1"
+                          className="font-bold text-slate-900 dark:text-white text-brand-primary dark:text-teal-400 hover:underline flex items-center gap-1"
                         >
                           <span>{item.orderNumber}</span>
                           <ExternalLink className="w-3 h-3 text-slate-400" />
                         </Link>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-1 font-mono">
+                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{toPersianDate(item.refundRequestedAt || item.createdAt || item.date || item.updatedAt)}</span>
+                        </div>
                       </td>
 
                       {/* Customer */}

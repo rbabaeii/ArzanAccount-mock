@@ -6,7 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useStore } from "@/context/StoreContext";
 import { api } from "@/lib/api";
 import { AuditLog } from "@/types";
-import { toPersianDateTime } from "@/lib/date";
+import { toPersianDateTime, toPersianDate, parseOrderDate } from "@/lib/date";
+import JalaliDatePickerInput from "@/components/ui/JalaliDatePickerInput";
 import {
   Activity,
   Calendar,
@@ -31,6 +32,7 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   Eye,
+  RotateCcw,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 import Link from "next/link";
@@ -51,6 +53,9 @@ function AdminActivitiesContent() {
   const { user: currentUser } = useAuth();
   const { auditLogs } = useStore();
 
+  const [selectedAdminId, setSelectedAdminId] = useState<string>(initialAdminId);
+  const [selectedType, setSelectedType] = useState<string>("all");
+
   const [admins, setAdmins] = useState<AdminUser[]>([
     { id: "mock-super-admin", name: "رضا بابایی (مدیر ارشد سامانه)", role: "SUPER_ADMIN", phone: "09181111111" },
     { id: "mock-support-admin", name: "علی صادقی (پشتیبان سفارشات)", role: "SUPPORT_ADMIN", phone: "09120000001" },
@@ -58,9 +63,10 @@ function AdminActivitiesContent() {
     { id: "mock-finance-admin", name: "زهرا احمدی (مدیر مالی)", role: "FINANCE_ADMIN", phone: "09140000003" },
   ]);
 
-  const [selectedAdminId, setSelectedAdminId] = useState<string>(initialAdminId);
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [timeRange, setTimeRange] = useState<"all" | "today" | "yesterday" | "7days" | "30days">("all");
+  type ActivityTimeRange = "all" | "today" | "yesterday" | "7days" | "30days" | "90days" | "custom";
+  const [timeRange, setTimeRange] = useState<ActivityTimeRange>("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [search, setSearch] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
@@ -152,25 +158,36 @@ function AdminActivitiesContent() {
 
       // 3. Time range filter
       if (timeRange !== "all") {
-        const logTime = new Date(log.createdAt || log.timestamp || 0).getTime();
-        const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000;
+        const logDate = parseOrderDate(log.createdAt || log.timestamp);
+        const now = new Date();
 
         if (timeRange === "today") {
-          const todayStart = new Date();
-          todayStart.setHours(0, 0, 0, 0);
-          if (logTime < todayStart.getTime()) return false;
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          if (logDate < todayStart) return false;
         } else if (timeRange === "yesterday") {
-          const yesterdayStart = new Date();
-          yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-          yesterdayStart.setHours(0, 0, 0, 0);
-          const yesterdayEnd = new Date(yesterdayStart);
-          yesterdayEnd.setHours(23, 59, 59, 999);
-          if (logTime < yesterdayStart.getTime() || logTime > yesterdayEnd.getTime()) return false;
+          const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+          const yesterdayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          if (logDate < yesterdayStart || logDate >= yesterdayEnd) return false;
         } else if (timeRange === "7days") {
-          if (now - logTime > 7 * oneDay) return false;
+          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (logDate < sevenDaysAgo) return false;
         } else if (timeRange === "30days") {
-          if (now - logTime > 30 * oneDay) return false;
+          const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          if (logDate < thirtyDaysAgo) return false;
+        } else if (timeRange === "90days") {
+          const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          if (logDate < ninetyDaysAgo) return false;
+        } else if (timeRange === "custom") {
+          if (customStartDate) {
+            const s = parseOrderDate(customStartDate);
+            s.setHours(0, 0, 0, 0);
+            if (logDate < s) return false;
+          }
+          if (customEndDate) {
+            const e = parseOrderDate(customEndDate);
+            e.setHours(23, 59, 59, 999);
+            if (logDate > e) return false;
+          }
         }
       }
 
@@ -185,11 +202,11 @@ function AdminActivitiesContent() {
 
       return true;
     }).sort((a, b) => {
-      const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
-      const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+      const timeA = parseOrderDate(a.createdAt || a.timestamp).getTime();
+      const timeB = parseOrderDate(b.createdAt || b.timestamp).getTime();
       return sortOrder === "desc" ? timeB - timeA : timeA - timeB;
     });
-  }, [apiActivities, auditLogs, selectedAdminId, selectedType, timeRange, search, sortOrder, admins]);
+  }, [apiActivities, auditLogs, selectedAdminId, selectedType, timeRange, customStartDate, customEndDate, search, sortOrder, admins]);
 
   // Active admin info
   const currentAdmin = admins.find((a) => a.id === selectedAdminId);
@@ -506,56 +523,33 @@ function AdminActivitiesContent() {
               <span>بازه زمانی:</span>
             </span>
 
-            <button
-              onClick={() => { setTimeRange("all"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
-                timeRange === "all"
-                  ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-xs"
-                  : "bg-admin-bg dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
-              }`}
-            >
-              همه زمان‌ها
-            </button>
-            <button
-              onClick={() => { setTimeRange("today"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
-                timeRange === "today"
-                  ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-xs"
-                  : "bg-admin-bg dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
-              }`}
-            >
-              امروز
-            </button>
-            <button
-              onClick={() => { setTimeRange("yesterday"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
-                timeRange === "yesterday"
-                  ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-xs"
-                  : "bg-admin-bg dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
-              }`}
-            >
-              دیروز
-            </button>
-            <button
-              onClick={() => { setTimeRange("7days"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
-                timeRange === "7days"
-                  ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-xs"
-                  : "bg-admin-bg dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
-              }`}
-            >
-              ۷ روز گذشته
-            </button>
-            <button
-              onClick={() => { setTimeRange("30days"); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all duration-200 hover:scale-105 active:scale-95 ${
-                timeRange === "30days"
-                  ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-xs"
-                  : "bg-admin-bg dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
-              }`}
-            >
-              ۳۰ روز گذشته
-            </button>
+            {[
+              { id: "all", label: "همه زمان‌ها" },
+              { id: "today", label: "امروز" },
+              { id: "yesterday", label: "دیروز" },
+              { id: "7days", label: "۷ روز گذشته" },
+              { id: "30days", label: "۳۰ روز اخیر (ماه)" },
+              { id: "90days", label: "۳ ماه اخیر" },
+              { id: "custom", label: "بازه دلخواه 📅" },
+            ].map((p) => {
+              const isActive = timeRange === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setTimeRange(p.id as any);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer ${
+                    isActive
+                      ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-xs"
+                      : "bg-admin-bg dark:bg-slate-800 text-neutral-600 dark:text-slate-400 hover:text-black dark:hover:text-white"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex items-center gap-2">
@@ -569,6 +563,55 @@ function AdminActivitiesContent() {
             </button>
           </div>
         </div>
+
+        {/* Collapsible Custom Jalali Date Range */}
+        {timeRange === "custom" && (
+          <div className="p-3 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-bold text-teal-900 dark:text-teal-300">تعیین دقیق بازه تاریخی شمسی:</span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">از تاریخ:</span>
+                <div className="w-36">
+                  <JalaliDatePickerInput
+                    value={customStartDate}
+                    onChange={(v) => {
+                      setCustomStartDate(v);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="مثلا ۱۴۰۵/۰۷/۰۱"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">تا تاریخ:</span>
+                <div className="w-36">
+                  <JalaliDatePickerInput
+                    value={customEndDate}
+                    onChange={(v) => {
+                      setCustomEndDate(v);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="مثلا ۱۴۰۵/۰۷/۰۶"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(customStartDate || customEndDate) && (
+              <button
+                onClick={() => {
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                  setCurrentPage(1);
+                }}
+                className="text-[11px] text-teal-700 dark:text-teal-300 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1 font-medium cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                پاک کردن تاریخ‌ها
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Activity Table */}

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
+import { useStore } from "@/context/StoreContext";
 import {
   Search,
   X,
@@ -44,6 +45,9 @@ export const LiveSearchDropdown: React.FC<LiveSearchDropdownProps> = ({
   scope = "public",
 }) => {
   const router = useRouter();
+  
+  const store = useStore();
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{
     products: { item: any; score: number; highlights: string[] }[];
@@ -81,9 +85,28 @@ export const LiveSearchDropdown: React.FC<LiveSearchDropdownProps> = ({
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await api.searchLive(query, scope, scope === "admin" ? 8 : 6);
-        if (res) {
-          setResults(res);
+        if (scope === "admin" && store?.products) {
+          const searchLower = query.toLowerCase();
+          const filtered = store.products.filter((p: any) => {
+            return (
+              (p.name && p.name.toLowerCase().includes(searchLower)) ||
+              (p.customTitle && p.customTitle.toLowerCase().includes(searchLower)) ||
+              (p.externalId && p.externalId.toString().includes(searchLower)) ||
+              (p.tags && p.tags.some((t: string) => t.toLowerCase().includes(searchLower)))
+            );
+          }).slice(0, 8);
+          setResults({
+            products: filtered.map((p: any) => ({ item: p, score: 1, highlights: [] })),
+            categories: [],
+            suggestions: [],
+            totalMatches: filtered.length,
+            tookMs: 1
+          });
+        } else {
+          const res = await api.searchLive(query, scope, scope === "admin" ? 8 : 6);
+          if (res) {
+            setResults(res);
+          }
         }
       } catch (err) {
         console.warn("Live search error:", err);
@@ -139,11 +162,15 @@ export const LiveSearchDropdown: React.FC<LiveSearchDropdownProps> = ({
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : results.products.length - 1));
-    } else if (e.key === "Enter" && selectedIndex >= 0) {
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      const selected = results.products[selectedIndex];
-      if (selected) {
-        handleSelectProduct(selected.item.id, selected.item.customTitle || selected.item.name);
+      if (selectedIndex >= 0) {
+        const selected = results.products[selectedIndex];
+        if (selected) {
+          handleSelectProduct(selected.item.id, selected.item.customTitle || selected.item.name);
+        }
+      } else {
+        handleSubmit();
       }
     } else if (e.key === "Escape") {
       setIsOpen(false);

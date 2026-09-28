@@ -117,17 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
 
             if (me) {
-              const localWalletStr = localStorage.getItem("arzan_wallet_" + me.id);
-              const localWallet = localWalletStr ? Number(localWalletStr) : undefined;
-              const effectiveWallet =
-                localWallet !== undefined && !isNaN(localWallet)
-                  ? Math.max(localWallet, me.walletBalanceToman ?? 0)
-                  : (me.walletBalanceToman ?? 0);
-
               const mergedUser: AuthUser = {
                 ...me,
-                walletBalanceToman: effectiveWallet,
-                directDepositBalance: me.directDepositBalance ?? effectiveWallet,
+                walletBalanceToman: me.walletBalanceToman ?? 0,
+                directDepositBalance: me.directDepositBalance ?? 0,
               };
 
               setUser(mergedUser);
@@ -366,12 +359,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { success: true, user: updatedUser, message: "پروفایل کاربری با موفقیت به‌روزرسانی شد." };
     } catch (err: any) {
-      const updatedUser: AuthUser = { ...user, ...data };
-      setUser(updatedUser);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("arzan_cached_user", JSON.stringify(updatedUser));
+      if (user.id.startsWith("mock-")) {
+        const updatedUser: AuthUser = { ...user, ...data };
+        setUser(updatedUser);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("arzan_cached_user", JSON.stringify(updatedUser));
+        }
+        return { success: true, user: updatedUser, message: "اطلاعات با موفقیت اعمال گردید." };
       }
-      return { success: true, user: updatedUser, message: "اطلاعات با موفقیت اعمال گردید." };
+      console.error("updateProfile backend error:", err);
+      throw err;
     }
   };
 

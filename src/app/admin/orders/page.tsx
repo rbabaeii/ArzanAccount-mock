@@ -41,23 +41,31 @@ import {
   Lock,
 } from "lucide-react";
 
-import { toPersianDateTime } from "@/lib/date";
+import { toPersianDateTime, toPersianDate, parseOrderDate } from "@/lib/date";
 import Pagination from "@/components/ui/Pagination";
 import { OrderInvoiceModal } from "@/components/admin/OrderInvoiceModal";
+import { OrdersReportPrintModal } from "@/components/admin/OrdersReportPrintModal";
+import JalaliDatePickerInput from "@/components/ui/JalaliDatePickerInput";
 
 export default function AdminOrdersPage() {
   const { orders, updateOrderStatus, settings } = useStore();
   const { user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"all" | "my_approved">("all");
-  const [myTimeRange, setMyTimeRange] = useState<"all" | "today" | "yesterday" | "7d" | "30d" | "custom">("all");
+  
+  // Time breakdown filter state
+  type TimeRangeType = "all" | "today" | "yesterday" | "7d" | "30d" | "90d" | "custom";
+  const [timeRange, setTimeRange] = useState<TimeRangeType>("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | Order["status"]>("all");
+  type StatusFilterType = "all" | "processing" | "delivered" | "pending" | "refunded" | "failed";
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>("all");
+  
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
+  const [isPrintReportModalOpen, setIsPrintReportModalOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   // Pagination state
@@ -100,19 +108,116 @@ export default function AdminOrdersPage() {
     }
   };
 
-  const filteredOrders = orders.filter((o) => {
-    const matchesSearch =
-      o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-      o.customerEmail.toLowerCase().includes(search.toLowerCase()) ||
-      (o.customerPhone && o.customerPhone.includes(search));
+  const isDateInRange = (dateInput?: string | Date | null) => {
+    if (timeRange === "all") return true;
+    const targetDate = parseOrderDate(dateInput);
+    const now = new Date();
 
-    const matchesStatus = statusFilter === "all" ? true : o.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    if (timeRange === "today") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start;
+    }
+    if (timeRange === "yesterday") {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      return targetDate >= start && targetDate < end;
+    }
+    if (timeRange === "7d") {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "30d") {
+      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "90d") {
+      const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      return targetDate >= start;
+    }
+    if (timeRange === "custom") {
+      if (customStartDate) {
+        const s = parseOrderDate(customStartDate);
+        s.setHours(0, 0, 0, 0);
+        if (targetDate < s) return false;
+      }
+      if (customEndDate) {
+        const e = parseOrderDate(customEndDate);
+        e.setHours(23, 59, 59, 999);
+        if (targetDate > e) return false;
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const matchesStatus = (status: Order["status"], filter: StatusFilterType) => {
+    if (filter === "all") return true;
+    if (filter === "delivered") return status === "delivered";
+    if (filter === "processing") return status === "processing";
+    if (filter === "pending") return status === "pending";
+    if (filter === "refunded") return status === "refunded" || status === "refund_requested";
+    if (filter === "failed") return status === "failed" || status === "cancelled";
+    return status === filter;
+  };
+
+  const getTimeRangeLabel = () => {
+    switch (timeRange) {
+      case "today":
+        return `امروز (${toPersianDate(new Date())})`;
+      case "yesterday": {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return `دیروز (${toPersianDate(y)})`;
+      }
+      case "7d":
+        return "۷ روز اخیر";
+      case "30d":
+        return "۳۰ روز اخیر (ماه جاری)";
+      case "90d":
+        return "۳ ماه اخیر";
+      case "custom":
+        return `بازه شمسی ${customStartDate || "ابتدا"} تا ${customEndDate || "اکنون"}`;
+      default:
+        return "همه زمان‌ها (کل سفارشات)";
+    }
+  };
+
+  const getStatusFilterLabel = () => {
+    switch (statusFilter) {
+      case "delivered":
+        return "سفارشات موفق / تحویل‌شده";
+      case "processing":
+        return "سفارشات در حال پردازش";
+      case "pending":
+        return "سفارشات در انتظار پرداخت";
+      case "refunded":
+        return "سفارشات مسترد شده / عودت وجه";
+      case "failed":
+        return "سفارشات لغو شده / ناموفق";
+      default:
+        return "همه وضعیت‌ها";
+    }
+  };
+
+  const filteredOrders = orders.filter((o) => {
+    if (!isDateInRange(o.createdAt)) return false;
+    if (!matchesStatus(o.status, statusFilter)) return false;
+
+    if (search) {
+      const q = search.toLowerCase();
+      const matchesSearch =
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.customerEmail.toLowerCase().includes(q) ||
+        (o.customerPhone && o.customerPhone.includes(q)) ||
+        o.items.some((it) => it.productTitle.toLowerCase().includes(q));
+      if (!matchesSearch) return false;
+    }
+
+    return true;
   });
 
   // Filter for current admin's approved orders
   const myApprovedOrders = orders.filter((o) => {
-    // Check if approved by this admin (or in demo mode, if delivered and matches or admin has support/super role)
     const isApprovedByMe =
       o.approvedByAdminId === user?.id ||
       (user?.name && o.approvedByAdminName && o.approvedByAdminName.toLowerCase().includes(user.name.toLowerCase())) ||
@@ -120,27 +225,8 @@ export default function AdminOrdersPage() {
 
     if (!isApprovedByMe) return false;
 
-    // Time filter
-    const targetDate = new Date(o.approvedAt || o.createdAt);
-    const now = new Date();
-
-    if (myTimeRange === "today") {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      if (targetDate < start) return false;
-    } else if (myTimeRange === "yesterday") {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      if (targetDate < start || targetDate >= end) return false;
-    } else if (myTimeRange === "7d") {
-      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      if (targetDate < start) return false;
-    } else if (myTimeRange === "30d") {
-      const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      if (targetDate < start) return false;
-    } else if (myTimeRange === "custom") {
-      if (customStartDate && targetDate < new Date(customStartDate)) return false;
-      if (customEndDate && targetDate > new Date(customEndDate + "T23:59:59")) return false;
-    }
+    if (!isDateInRange(o.approvedAt || o.createdAt)) return false;
+    if (!matchesStatus(o.status, statusFilter)) return false;
 
     if (search) {
       const q = search.toLowerCase();
@@ -155,11 +241,54 @@ export default function AdminOrdersPage() {
     return true;
   });
 
+  const currentDisplayOrders = activeTab === "my_approved" ? myApprovedOrders : filteredOrders;
+  const currentTotalToman = currentDisplayOrders.reduce((acc, o) => acc + (o.totalPriceToman || 0), 0);
+  const currentTotalUsd = currentDisplayOrders.reduce((acc, o) => acc + (o.totalPriceUsd || 0), 0);
+  const currentDeliveredLicensesCount = currentDisplayOrders.reduce((acc, o) => acc + (o.deliveredAccounts?.length || 0), 0);
+
   const myTotalToman = myApprovedOrders.reduce((acc, o) => acc + (o.totalPriceToman || 0), 0);
   const myTotalUsd = myApprovedOrders.reduce((acc, o) => acc + (o.totalPriceUsd || 0), 0);
   const myDeliveredLicensesCount = myApprovedOrders.reduce((acc, o) => acc + (o.deliveredAccounts?.length || 0), 0);
 
-  const currentDisplayOrders = activeTab === "my_approved" ? myApprovedOrders : filteredOrders;
+  // Status counts in the current scope & time range
+  const scopedOrdersForStatus = orders.filter((o) => {
+    if (activeTab === "my_approved") {
+      const isApprovedByMe =
+        o.approvedByAdminId === user?.id ||
+        (user?.name && o.approvedByAdminName && o.approvedByAdminName.toLowerCase().includes(user.name.toLowerCase())) ||
+        (o.status === "delivered" && (user?.role === "SUPPORT_ADMIN" || user?.role === "SUPER_ADMIN") && !o.approvedByAdminId);
+      if (!isApprovedByMe) return false;
+      return isDateInRange(o.approvedAt || o.createdAt);
+    }
+    return isDateInRange(o.createdAt);
+  });
+
+  const countAll = scopedOrdersForStatus.length;
+  const countProcessing = scopedOrdersForStatus.filter((o) => o.status === "processing").length;
+  const countDelivered = scopedOrdersForStatus.filter((o) => o.status === "delivered").length;
+  const countPending = scopedOrdersForStatus.filter((o) => o.status === "pending").length;
+  const countRefunded = scopedOrdersForStatus.filter((o) => o.status === "refunded" || o.status === "refund_requested").length;
+  const countFailed = scopedOrdersForStatus.filter((o) => o.status === "failed" || o.status === "cancelled").length;
+
+  const timeRangePresets = [
+    { id: "all", label: "همه زمان‌ها" },
+    { id: "today", label: "امروز" },
+    { id: "yesterday", label: "دیروز" },
+    { id: "7d", label: "۷ روز اخیر" },
+    { id: "30d", label: "۳۰ روز اخیر (ماه)" },
+    { id: "90d", label: "۳ ماه اخیر" },
+    { id: "custom", label: "بازه دلخواه 📅" },
+  ] as const;
+
+  const statusFilterButtons = [
+    { id: "all", label: "همه وضعیت‌ها", count: countAll },
+    { id: "processing", label: "در حال پردازش / ثبت", count: countProcessing },
+    { id: "delivered", label: "موفق / تحویل‌شده", count: countDelivered },
+    { id: "pending", label: "در انتظار پرداخت", count: countPending },
+    { id: "refunded", label: "استرداد / عودت وجه", count: countRefunded },
+    { id: "failed", label: "ناموفق / لغو", count: countFailed },
+  ] as const;
+
   const totalPages = Math.ceil(currentDisplayOrders.length / itemsPerPage);
   const paginatedOrders = currentDisplayOrders.slice(
     (currentPage - 1) * itemsPerPage,
@@ -332,55 +461,14 @@ export default function AdminOrdersPage() {
               </div>
             </div>
 
-            {/* Time Filter Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 bg-black/20 backdrop-blur-md p-1.5 rounded-xl border border-white/10 text-xs">
-              {[
-                { id: "all", label: "همه زمان‌ها" },
-                { id: "today", label: "امروز" },
-                { id: "yesterday", label: "دیروز" },
-                { id: "7d", label: "۷ روز اخیر" },
-                { id: "30d", label: "۳۰ روز اخیر" },
-                { id: "custom", label: "بازه دلخواه" },
-              ].map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => setMyTimeRange(pill.id as any)}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    myTimeRange === pill.id
-                      ? "bg-purple-600 text-white shadow-xs font-bold"
-                      : "text-purple-200 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  {pill.label}
-                </button>
-              ))}
+            {/* Active Time Scope Indicator */}
+            <div className="flex flex-wrap items-center gap-2 bg-black/25 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10 text-xs">
+              <span className="text-purple-200">بازه زمانی فعال:</span>
+              <span className="font-bold text-white bg-purple-600/90 px-3 py-1 rounded-lg">
+                {getTimeRangeLabel()}
+              </span>
             </div>
           </div>
-
-          {/* Custom Date Inputs if custom is selected */}
-          {myTimeRange === "custom" && (
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-purple-200 dark:border-purple-900/50 flex flex-wrap items-center gap-4 text-xs">
-              <span className="font-bold text-purple-900 dark:text-purple-300">انتخاب بازه تاریخی دقیق:</span>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500">از تاریخ:</span>
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 px-3 py-1.5 rounded-lg text-xs outline-none"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500">تا تاریخ:</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 px-3 py-1.5 rounded-lg text-xs outline-none"
-                />
-              </div>
-            </div>
-          )}
 
           {/* 4 KPI Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -435,70 +523,204 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      {/* Filter and Search */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-admin-borderLight dark:border-slate-800 shadow-card flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            placeholder="جستجو با کد سفارش (ARZ-XXXX)، ایمیل یا شماره موبایل خریدار..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-brand-primary dark:focus:border-teal-400 rounded-xl py-2.5 pr-9 pl-3 text-xs outline-none"
-          />
-          <Search className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
+      {/* Time & Status Filter Control Center */}
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-admin-borderLight dark:border-slate-800 shadow-card space-y-4">
+        {/* Row 1: Time Breakdown Presets */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-admin-borderLight/60 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-brand-primary dark:text-teal-400">
+              <Calendar className="w-4 h-4" />
+            </span>
+            <div>
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200 block">
+                تفکیک بازه زمانی سفارشات
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                مشاهده و گزارش‌گیری سفارشات بر اساس روز، ماه یا بازه دلخواه
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 bg-admin-bg dark:bg-slate-800/80 p-1.5 rounded-xl border border-admin-borderLight dark:border-slate-700/80 text-xs">
+            {timeRangePresets.map((pill) => {
+              const isActive = timeRange === pill.id;
+              return (
+                <button
+                  key={pill.id}
+                  onClick={() => {
+                    setTimeRange(pill.id as any);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    isActive
+                      ? "bg-brand-primary text-white shadow-xs"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60"
+                  }`}
+                >
+                  {pill.id === "yesterday" && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  )}
+                  <span>{pill.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-admin-bg dark:bg-slate-800 p-1 rounded-xl border border-admin-borderLight dark:border-slate-700 text-xs overflow-x-auto">
+        {/* Collapsible Custom Jalali Date Range Box */}
+        {timeRange === "custom" && (
+          <div className="p-4 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800/60 rounded-xl flex flex-wrap items-center justify-between gap-4 animate-in fade-in duration-200">
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              <span className="font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4" />
+                تعیین دقیق تاریخ شمسی:
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">از تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customStartDate}
+                    onChange={(val) => {
+                      setCustomStartDate(val);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="مثلاً ۱۴۰۵/۰۷/۰۱"
+                    className="w-full text-xs"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-600 dark:text-slate-400">تا تاریخ:</span>
+                <div className="w-40">
+                  <JalaliDatePickerInput
+                    value={customEndDate}
+                    onChange={(val) => {
+                      setCustomEndDate(val);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="مثلاً ۱۴۰۵/۰۷/۰۶"
+                    className="w-full text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(customStartDate || customEndDate) && (
+              <button
+                onClick={() => {
+                  setCustomStartDate("");
+                  setCustomEndDate("");
+                  setCurrentPage(1);
+                }}
+                className="text-[11px] text-teal-700 dark:text-teal-300 hover:text-red-600 dark:hover:text-red-400 flex items-center gap-1 transition-colors font-medium cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                پاک کردن تاریخ‌ها
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Row 2: Search Bar + Status Filter Pills */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+          {/* Live Search */}
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="جستجو با کد سفارش (ARZ-XXXX)، نام محصول، ایمیل یا موبایل خریدار..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full bg-admin-bg dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-brand-primary dark:focus:border-teal-400 rounded-xl py-2.5 pr-9 pl-8 text-xs outline-none"
+            />
+            <Search className="w-4 h-4 text-neutral-400 absolute right-3 top-1/2 -translate-y-1/2" />
+            {search && (
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setCurrentPage(1);
+                }}
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-white absolute left-3 top-1/2 -translate-y-1/2 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Status Filter Buttons with Live Badges */}
+          <div className="flex items-center gap-1 bg-admin-bg dark:bg-slate-800 p-1 rounded-xl border border-admin-borderLight dark:border-slate-700 text-xs overflow-x-auto">
+            {statusFilterButtons.map((btn) => {
+              const isActive = statusFilter === btn.id;
+              return (
+                <button
+                  key={btn.id}
+                  onClick={() => {
+                    setStatusFilter(btn.id as any);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all shrink-0 flex items-center gap-1.5 text-xs cursor-pointer ${
+                    isActive
+                      ? "bg-brand-primary text-white shadow-xs font-black"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <span>{btn.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                      isActive
+                        ? "bg-white/25 text-white"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    {formatNumber(btn.count)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Row 3: Dynamic Executive Summary & Official Print Report Trigger */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-admin-borderLight/60 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-3 rounded-xl">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+            <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-teal-500" />
+              وضعیت فیلتر:
+              <span className="text-brand-primary dark:text-teal-400 font-bold mr-1">
+                {getTimeRangeLabel()}
+              </span>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-600 dark:text-slate-300">
+                {getStatusFilterLabel()}
+              </span>
+            </span>
+
+            <span className="text-slate-500 dark:text-slate-400">
+              تعداد سفارشات: <strong className="font-mono text-slate-900 dark:text-white mr-0.5">{formatNumber(currentDisplayOrders.length)}</strong>
+            </span>
+
+            <span className="text-slate-500 dark:text-slate-400">
+              مجموع ریالی: <strong className="font-mono text-emerald-600 dark:text-emerald-400 mr-0.5">{formatPrice(currentTotalToman)} تومان</strong>
+            </span>
+
+            {currentTotalUsd > 0 && (
+              <span className="text-slate-500 dark:text-slate-400">
+                مجموع دلاری: <strong className="font-mono text-blue-600 dark:text-blue-400 mr-0.5">${currentTotalUsd.toFixed(2)}</strong>
+              </span>
+            )}
+          </div>
+
+          {/* Prominent Print Button */}
           <button
-            onClick={() => {
-              setStatusFilter("all");
-              setCurrentPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0 flex items-center gap-1.5 ${
-              statusFilter === "all" ? "bg-white dark:bg-slate-700 text-brand-primary dark:text-teal-300 shadow-xs font-bold" : "text-neutral-500 dark:text-slate-400 hover:text-neutral-900 dark:text-white dark:hover:text-white"
-            }`}
+            onClick={() => setIsPrintReportModalOpen(true)}
+            disabled={currentDisplayOrders.length === 0}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-primary to-teal-700 hover:from-teal-600 hover:to-teal-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black shadow-md shadow-teal-700/20 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shrink-0"
+            title="چاپ گزارش رسمی با استاندارد A4، سربرگ سازمانی و جدول سفارشات"
           >
-            <span>همه</span>
-            <span className="text-[10px] bg-neutral-200 px-1.5 py-0.2 rounded-full font-mono">{orders.length}</span>
-          </button>
-          <button
-            onClick={() => {
-              setStatusFilter("delivered");
-              setCurrentPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0 flex items-center gap-1.5 ${
-              statusFilter === "delivered" ? "bg-emerald-600 text-white shadow-xs font-bold" : "text-neutral-500 hover:text-neutral-900 dark:text-white"
-            }`}
-          >
-            <span>تحویل‌شده</span>
-            <span className="text-[10px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full font-mono">{deliveredCount}</span>
-          </button>
-          <button
-            onClick={() => {
-              setStatusFilter("processing");
-              setCurrentPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0 flex items-center gap-1.5 ${
-              statusFilter === "processing" ? "bg-amber-500 text-white shadow-xs font-bold" : "text-neutral-500 hover:text-neutral-900 dark:text-white"
-            }`}
-          >
-            <span>در حال پردازش</span>
-            <span className="text-[10px] bg-amber-600 text-white px-1.5 py-0.2 rounded-full font-mono">{processingCount}</span>
-          </button>
-          <button
-            onClick={() => {
-              setStatusFilter("failed");
-              setCurrentPage(1);
-            }}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0 flex items-center gap-1.5 ${
-              statusFilter === "failed" ? "bg-red-600 text-white shadow-xs font-bold" : "text-neutral-500 hover:text-neutral-900 dark:text-white"
-            }`}
-          >
-            <span>ناموفق / لغو</span>
-            <span className="text-[10px] bg-red-700 text-white px-1.5 py-0.2 rounded-full font-mono">{failedCount}</span>
+            <Printer className="w-4 h-4 shrink-0" />
+            <span>خروجی و چاپ رسمی گزارش ({formatNumber(currentDisplayOrders.length)} سفارش)</span>
           </button>
         </div>
       </div>
@@ -1284,6 +1506,16 @@ export default function AdminOrdersPage() {
           onClose={() => setInvoiceOrder(null)}
         />
       )}
+
+      {/* Comprehensive Batch Orders Report Print Modal */}
+      <OrdersReportPrintModal
+        isOpen={isPrintReportModalOpen}
+        onClose={() => setIsPrintReportModalOpen(false)}
+        orders={currentDisplayOrders}
+        timeRangeLabel={getTimeRangeLabel()}
+        statusFilterLabel={getStatusFilterLabel()}
+        adminName={user?.name || "مدیریت ارزان اکانت"}
+      />
     </div>
   );
 }

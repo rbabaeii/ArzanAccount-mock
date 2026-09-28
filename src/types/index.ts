@@ -96,17 +96,33 @@ export interface Order {
   approvedAt?: string;
 }
 
+export interface CouponTargetUser {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  role?: string;
+}
+
 export interface Coupon {
   id: string;
   code: string;
   discountPercent: number;
   maxDiscountToman: number;
   minOrderToman: number;
-  expiresAt: string;
+  expiresAt?: string; // Optional: empty/undefined means permanent (بدون انقضا / دائمی)
   usageCount: number;
   maxUsage: number;
   isActive: boolean;
   categoryId?: string;
+  // User-specific coupon fields
+  targetType?: "ALL" | "USER";
+  targetUserIds?: string[]; // Array of allowed user IDs for this single coupon code
+  targetUsers?: CouponTargetUser[]; // User details for popup modal display
+  targetUserId?: string; // Backward compatibility for single user
+  targetUserName?: string;
+  targetUserPhone?: string;
+  targetUserEmail?: string;
 }
 
 export interface AuditLog {

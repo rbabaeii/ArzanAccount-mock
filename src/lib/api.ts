@@ -170,23 +170,38 @@ export const api = {
       }
     ),
 
-  toggleProductActive: (id: string, user = "مدیر سیستم") =>
-    request<any>(`/catalog/products/${id}/toggle-active`, {
+  toggleProductActive: (id: string, adminUser?: any) => {
+    const userDisplay = typeof adminUser === "object" ? adminUser?.name : (typeof adminUser === "string" ? adminUser : undefined);
+    const adminId = typeof adminUser === "object" ? adminUser?.id : undefined;
+    const adminName = typeof adminUser === "object" ? adminUser?.name : undefined;
+    const adminPhone = typeof adminUser === "object" ? adminUser?.phone : undefined;
+    return request<any>(`/catalog/products/${id}/toggle-active`, {
       method: "PUT",
-      body: JSON.stringify({ user }),
-    }),
+      body: JSON.stringify({ user: userDisplay, adminId, adminName, adminPhone }),
+    });
+  },
 
-  updateProduct: (id: string, updates: any, user = "مدیر سیستم") =>
-    request<any>(`/catalog/products/${id}`, {
+  updateProduct: (id: string, updates: any, adminUser?: any) => {
+    const userDisplay = typeof adminUser === "object" ? adminUser?.name : (typeof adminUser === "string" ? adminUser : undefined);
+    const adminId = typeof adminUser === "object" ? adminUser?.id : undefined;
+    const adminName = typeof adminUser === "object" ? adminUser?.name : undefined;
+    const adminPhone = typeof adminUser === "object" ? adminUser?.phone : undefined;
+    return request<any>(`/catalog/products/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ ...updates, user }),
-    }),
+      body: JSON.stringify({ ...updates, user: userDisplay, adminId, adminName, adminPhone }),
+    });
+  },
 
-  createProduct: (data: any, user = "مدیر سیستم") =>
-    request<any>("/catalog/products", {
+  createProduct: (data: any, adminUser?: any) => {
+    const userDisplay = typeof adminUser === "object" ? adminUser?.name : (typeof adminUser === "string" ? adminUser : undefined);
+    const adminId = typeof adminUser === "object" ? adminUser?.id : undefined;
+    const adminName = typeof adminUser === "object" ? adminUser?.name : undefined;
+    const adminPhone = typeof adminUser === "object" ? adminUser?.phone : undefined;
+    return request<any>("/catalog/products", {
       method: "POST",
-      body: JSON.stringify({ ...data, user }),
-    }),
+      body: JSON.stringify({ ...data, user: userDisplay, adminId, adminName, adminPhone }),
+    });
+  },
 
   // Tag Management
   getAllTags: () =>
@@ -470,6 +485,12 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  sendCouponSms: (data: { phone: string; code: string; discountPercent: number; customerName?: string }) =>
+    request<any>("/sms/send-coupon", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   getSmsStats: () => request<any>("/sms/stats"),
 
   getSmsLogs: (params?: {
@@ -695,10 +716,10 @@ export const api = {
 
   // CartBeCart Card-to-Card Payment API
   // Validate coupon code
-  validateCoupon: (code: string) =>
+  validateCoupon: (code: string, userId?: string) =>
     request<any>("/coupons/validate", {
       method: "POST",
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, userId }),
     }),
   initiateCardPayment: (data: {
     amountToman: number;

@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useStore } from "@/context/StoreContext";
 import { formatNumber } from "@/lib/format";
 import { Category } from "@/types";
 import Pagination from "@/components/ui/Pagination";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   FolderTree,
   Plus,
@@ -21,21 +24,45 @@ import {
   Search,
 } from "lucide-react";
 
+const categorySchema = z.object({
+  title: z.string().min(2, "نام دسته‌بندی باید حداقل ۲ کاراکتر باشد"),
+  slug: z
+    .string()
+    .min(2, "نامک باید حداقل ۲ کاراکتر باشد")
+    .regex(/^[a-z0-9-]+$/, "نامک فقط می‌تواند شامل حروف کوچک انگلیسی، اعداد و خط تیره باشد"),
+  description: z.string().optional(),
+  icon: z.string().min(1, "آیکون را انتخاب کنید"),
+});
+
+type CategoryFormValues = z.infer<typeof categorySchema>;
+
 export default function AdminCategoriesPage() {
   const { categories, products, addCategory, updateCategory, deleteCategory } = useStore();
 
-  const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const [description, setDescription] = useState("");
-  const [icon, setIcon] = useState("Bot");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Form setups
+  const {
+    register: registerCreate,
+    handleSubmit: handleCreateSubmit,
+    reset: resetCreate,
+    formState: { errors: createErrors },
+  } = useForm<CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: { title: "", slug: "", description: "", icon: "Bot" },
+  });
+
+  const {
+    register: registerEdit,
+    handleSubmit: handleEditSubmit,
+    reset: resetEdit,
+    formState: { errors: editErrors },
+  } = useForm<CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+  });
 
   // Editing state
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editSlug, setEditSlug] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [editIcon, setEditIcon] = useState("Bot");
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Search, Sort and Pagination state
@@ -72,44 +99,40 @@ export default function AdminCategoriesPage() {
     currentPage * pageSize
   );
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !slug.trim()) return;
-
+  const onSubmitCreate = (data: CategoryFormValues) => {
     addCategory({
-      title: title.trim(),
-      slug: slug.trim().toLowerCase(),
-      description: description.trim(),
-      icon,
+      title: data.title.trim(),
+      slug: data.slug.trim().toLowerCase(),
+      description: data.description?.trim(),
+      icon: data.icon,
       orderIndex: categories.length + 1,
     });
 
-    setTitle("");
-    setSlug("");
-    setDescription("");
+    resetCreate();
     setToastMessage("دسته‌بندی جدید با موفقیت اضافه شد!");
     setTimeout(() => setToastMessage(null), 3500);
   };
 
   const handleOpenEdit = (cat: Category) => {
     setEditingCategory(cat);
-    setEditTitle(cat.title);
-    setEditSlug(cat.slug);
-    setEditDescription(cat.description || "");
-    setEditIcon(cat.icon || "Bot");
+    resetEdit({
+      title: cat.title,
+      slug: cat.slug,
+      description: cat.description || "",
+      icon: cat.icon || "Bot",
+    });
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCategory || !editTitle.trim() || !editSlug.trim()) return;
+  const onSubmitEdit = async (data: CategoryFormValues) => {
+    if (!editingCategory) return;
 
     setIsUpdating(true);
     try {
       await updateCategory(editingCategory.id, {
-        title: editTitle.trim(),
-        slug: editSlug.trim().toLowerCase(),
-        description: editDescription.trim(),
-        icon: editIcon,
+        title: data.title.trim(),
+        slug: data.slug.trim().toLowerCase(),
+        description: data.description?.trim(),
+        icon: data.icon,
       });
       setEditingCategory(null);
       setToastMessage("تغییرات دسته‌بندی با موفقیت ذخیره شد!");
@@ -123,11 +146,16 @@ export default function AdminCategoriesPage() {
 
   const getCategoryIcon = (iconName: string) => {
     switch (iconName) {
-      case "Bot": return <Bot className="w-4 h-4" />;
-      case "Film": return <Film className="w-4 h-4" />;
-      case "Headphones": return <Headphones className="w-4 h-4" />;
-      case "Share2": return <Share2 className="w-4 h-4" />;
-      default: return <Sparkles className="w-4 h-4" />;
+      case "Bot":
+        return <Bot className="w-4 h-4" />;
+      case "Film":
+        return <Film className="w-4 h-4" />;
+      case "Headphones":
+        return <Headphones className="w-4 h-4" />;
+      case "Share2":
+        return <Share2 className="w-4 h-4" />;
+      default:
+        return <Sparkles className="w-4 h-4" />;
     }
   };
 
@@ -154,7 +182,7 @@ export default function AdminCategoriesPage() {
             <span>افزودن دسته‌بندی جدید</span>
           </h3>
 
-          <form onSubmit={handleAdd} className="space-y-4 text-xs">
+          <form onSubmit={handleCreateSubmit(onSubmitCreate)} className="space-y-4 text-xs">
             <div>
               <label className="block font-semibold text-neutral-700 dark:text-slate-300 mb-1">
                 نام فارسی دسته‌بندی:
@@ -162,11 +190,10 @@ export default function AdminCategoriesPage() {
               <input
                 type="text"
                 placeholder="مثلاً: اکانت‌های آموزشی و زبان"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                {...registerCreate("title")}
                 className="w-full bg-slate-50 dark:bg-slate-800/90 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2.5 px-3 text-xs outline-none text-slate-800 dark:text-slate-100 placeholder:text-neutral-400 dark:placeholder:text-slate-500 transition-all"
-                required
               />
+              {createErrors.title && <p className="text-rose-500 mt-1 text-[10px]">{createErrors.title.message}</p>}
             </div>
 
             <div>
@@ -176,11 +203,10 @@ export default function AdminCategoriesPage() {
               <input
                 type="text"
                 placeholder="مثلاً: learning"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                {...registerCreate("slug")}
                 className="w-full bg-slate-50 dark:bg-slate-800/90 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2.5 px-3 text-xs outline-none dir-ltr text-left text-slate-800 dark:text-slate-100 placeholder:text-neutral-400 dark:placeholder:text-slate-500 transition-all font-mono"
-                required
               />
+              {createErrors.slug && <p className="text-rose-500 mt-1 text-[10px]">{createErrors.slug.message}</p>}
             </div>
 
             <div>
@@ -188,8 +214,7 @@ export default function AdminCategoriesPage() {
                 آیکون دسته‌بندی:
               </label>
               <select
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
+                {...registerCreate("icon")}
                 className="w-full bg-slate-50 dark:bg-slate-800/90 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2.5 px-3 text-xs outline-none text-slate-800 dark:text-slate-100 transition-all"
               >
                 <option value="Bot">هوش مصنوعی (Bot)</option>
@@ -198,6 +223,7 @@ export default function AdminCategoriesPage() {
                 <option value="Share2">شبکه‌های اجتماعی (Share2)</option>
                 <option value="Sparkles">ابزارهای دیجیتال (Sparkles)</option>
               </select>
+              {createErrors.icon && <p className="text-rose-500 mt-1 text-[10px]">{createErrors.icon.message}</p>}
             </div>
 
             <div>
@@ -207,10 +233,10 @@ export default function AdminCategoriesPage() {
               <textarea
                 rows={3}
                 placeholder="توضیح کوتاه درباره محصولات این شاخه..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                {...registerCreate("description")}
                 className="w-full bg-slate-50 dark:bg-slate-800/90 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2 px-3 text-xs outline-none resize-none text-slate-800 dark:text-slate-100 placeholder:text-neutral-400 dark:placeholder:text-slate-500 transition-all leading-relaxed"
               />
+              {createErrors.description && <p className="text-rose-500 mt-1 text-[10px]">{createErrors.description.message}</p>}
             </div>
 
             <button
@@ -371,18 +397,17 @@ export default function AdminCategoriesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+            <form onSubmit={handleEditSubmit(onSubmitEdit)} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-neutral-700 dark:text-slate-300 mb-1">
                   نام فارسی دسته‌بندی:
                 </label>
                 <input
                   type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  {...registerEdit("title")}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2 px-3 text-xs outline-none text-slate-800 dark:text-slate-100 transition-all font-bold"
-                  required
                 />
+                {editErrors.title && <p className="text-rose-500 mt-1 text-[10px]">{editErrors.title.message}</p>}
               </div>
 
               <div>
@@ -391,11 +416,10 @@ export default function AdminCategoriesPage() {
                 </label>
                 <input
                   type="text"
-                  value={editSlug}
-                  onChange={(e) => setEditSlug(e.target.value)}
+                  {...registerEdit("slug")}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2 px-3 text-xs outline-none dir-ltr text-left font-mono text-slate-800 dark:text-slate-100 transition-all"
-                  required
                 />
+                {editErrors.slug && <p className="text-rose-500 mt-1 text-[10px]">{editErrors.slug.message}</p>}
               </div>
 
               <div>
@@ -403,8 +427,7 @@ export default function AdminCategoriesPage() {
                   آیکون:
                 </label>
                 <select
-                  value={editIcon}
-                  onChange={(e) => setEditIcon(e.target.value)}
+                  {...registerEdit("icon")}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2 px-3 text-xs outline-none text-slate-800 dark:text-slate-100 transition-all"
                 >
                   <option value="Bot">هوش مصنوعی (Bot)</option>
@@ -413,6 +436,7 @@ export default function AdminCategoriesPage() {
                   <option value="Share2">شبکه‌های اجتماعی (Share2)</option>
                   <option value="Sparkles">ابزارهای دیجیتال (Sparkles)</option>
                 </select>
+                {editErrors.icon && <p className="text-rose-500 mt-1 text-[10px]">{editErrors.icon.message}</p>}
               </div>
 
               <div>
@@ -421,10 +445,10 @@ export default function AdminCategoriesPage() {
                 </label>
                 <textarea
                   rows={3}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
+                  {...registerEdit("description")}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-admin-borderLight dark:border-slate-700 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2 px-3 text-xs outline-none resize-none text-slate-800 dark:text-slate-100 transition-all leading-relaxed"
                 />
+                {editErrors.description && <p className="text-rose-500 mt-1 text-[10px]">{editErrors.description.message}</p>}
               </div>
 
               <div className="flex items-center gap-2 pt-2">
