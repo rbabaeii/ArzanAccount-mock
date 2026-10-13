@@ -77,7 +77,7 @@ export default function MobileBottomNav() {
                       : "text-slate-500 dark:text-slate-400"
                   }`}
                 />
-                {item.badge !== null && (
+                {typeof item.badge === "number" && item.badge > 0 && (
                   <span className="absolute -top-1.5 -right-2.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-amber-500 rounded-full ring-2 ring-white dark:ring-slate-900 animate-pulse">
                     {formatNumber(item.badge)}
                   </span>

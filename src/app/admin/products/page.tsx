@@ -738,10 +738,169 @@ export default function AdminProductsPage() {
         </select>
       </div>
 
-      {/* High Density Products Table */}
-      <div className="bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
+      {/* Mobile Products Card View (Visible on screens < md) */}
+      <div className="md:hidden space-y-3">
+        {paginatedProducts.map((product) => {
+          const price = calculateProductPrice(product);
+          const category = categories.find((c) => c.id === product.categoryId);
+
+          return (
+            <div
+              key={product.id}
+              className={`p-4 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900 shadow-sm ${
+                product.stockCount === 0 || product.inStock === false
+                  ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/15"
+                  : "border-admin-borderLight dark:border-slate-800"
+              }`}
+            >
+              {/* Card Header: External ID + Category + Active Toggle */}
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-slate-400 dark:text-slate-500">
+                    #{product.externalId}
+                  </span>
+                  {category ? (
+                    <span className="bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/60 px-2 py-0.5 rounded-md text-[10px] font-semibold truncate max-w-[120px]">
+                      {category.title}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-neutral-400 italic">بدون دسته</span>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => toggleProductActive(product.id)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all active:scale-95 ${
+                    product.isActive
+                      ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${product.isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                  <span>{product.isActive ? "فعال" : "غیرفعال"}</span>
+                </button>
+              </div>
+
+              {/* Title & Image */}
+              <div className="flex items-start gap-3 mt-3">
+                {product.image ? (
+                  <img
+                    src={product.image}
+                    alt={product.customTitle}
+                    className="w-12 h-12 rounded-xl object-cover border border-admin-borderLight dark:border-slate-700 shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-slate-800 text-neutral-400 dark:text-slate-500 flex items-center justify-center shrink-0">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">
+                    {product.customTitle || product.name}
+                  </h3>
+                  <p className="text-[11px] text-neutral-400 dark:text-slate-500 font-mono truncate mt-0.5" dir="ltr">
+                    {product.name}
+                  </p>
+                </div>
+              </div>
+
+              {/* Requirements & Badges */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                {product.requiresEmail && product.requiresPassword ? (
+                  <span className="inline-flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                    <Lock className="w-3 h-3 text-indigo-600" />
+                    <span>ایمیل و پسورد</span>
+                  </span>
+                ) : product.requiresEmail ? (
+                  <span className="inline-flex items-center gap-1 bg-sky-50 dark:bg-sky-950/80 text-sky-800 dark:text-sky-200 border border-sky-200 dark:border-sky-800 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                    <Mail className="w-3 h-3 text-sky-600" />
+                    <span>ایمیل</span>
+                  </span>
+                ) : product.requiresPassword ? (
+                  <span className="inline-flex items-center gap-1 bg-violet-50 dark:bg-violet-950/80 text-violet-800 dark:text-violet-200 border border-violet-200 dark:border-violet-800 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                    <Key className="w-3 h-3 text-violet-600" />
+                    <span>پسورد</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md text-[10px]">
+                    <Zap className="w-2.5 h-2.5 text-amber-500" />
+                    <span>تحویل آنی</span>
+                  </span>
+                )}
+
+                {product.stockCount === 0 || product.inStock === false ? (
+                  <span className="inline-flex items-center gap-1 bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 px-2 py-0.5 rounded-md text-[10px] font-bold mr-auto">
+                    <AlertTriangle className="w-3 h-3 text-rose-600" />
+                    <span>ناموجود</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-md text-[10px] font-bold mr-auto">
+                    <span>موجودی: {product.stockCount}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Price & Profit Information */}
+              <div className="grid grid-cols-2 gap-2 mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs">
+                <div>
+                  <span className="text-[10px] text-neutral-400 dark:text-slate-400 block">قیمت فروش سایت:</span>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                    {price.formattedToman} <span className="text-[10px] font-normal text-neutral-500">تومان</span>
+                  </span>
+                </div>
+                <div className="text-left" dir="ltr">
+                  <span className="text-[10px] text-neutral-400 dark:text-slate-400 block text-right" dir="rtl">سود و تامین:</span>
+                  <span className="text-[11px] font-mono text-slate-700 dark:text-slate-300">
+                    ${(product.costPriceUsd ?? 0).toFixed(2)} ({price.marginPercent}% سود)
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions Row */}
+              <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleDeleteProduct(product.id, product.customTitle || product.name)}
+                    className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                    title="حذف محصول"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  {product.isActive && (
+                    <Link
+                      href={`/products/${product.id}`}
+                      target="_blank"
+                      className="p-2 text-slate-500 hover:text-teal-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                      title="مشاهده در سایت"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => handleOpenEdit(product)}
+                  className="flex items-center gap-1.5 bg-brand-primary dark:bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>ویرایش محصول</span>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {paginatedProducts.length === 0 && (
+          <div className="p-8 text-center text-neutral-400 dark:text-slate-500 bg-white dark:bg-slate-900 rounded-2xl border border-admin-borderLight dark:border-slate-800">
+            هیچ محصولی با معیارهای جستجو یافت نشد.
+          </div>
+        )}
+      </div>
+
+      {/* High Density Products Table (Desktop & Tablet) */}
+      <div className="hidden md:block bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse">
+          <table className="min-w-[950px] w-full text-right border-collapse">
             <thead>
               <tr className="bg-admin-container/50 dark:bg-slate-800/80 border-b border-admin-borderLight dark:border-slate-800 text-xs font-bold text-admin-text dark:text-slate-200">
                 <th className="py-3 px-4 w-16">کد مرجع</th>

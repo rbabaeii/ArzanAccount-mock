@@ -639,7 +639,7 @@ export default function AdminRefundsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-right border-collapse text-xs">
+            <table className="min-w-[850px] w-full text-right border-collapse text-xs">
               <thead>
                 <tr className="border-b border-neutral-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-bold">
                   <th className="py-3.5 px-4">شماره سفارش</th>

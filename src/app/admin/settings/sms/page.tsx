@@ -763,7 +763,7 @@ export default function AdminSmsSettingsPage() {
           {/* Logs Table */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
+              <table className="min-w-[700px] w-full text-right text-xs">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-800">
                     <th className="py-3 px-4 font-bold">شماره گیرنده</th>

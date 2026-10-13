@@ -302,26 +302,26 @@ export default function AdminCategoriesPage() {
                   return (
                     <div
                       key={cat.id}
-                      className="py-3 px-3 rounded-xl flex items-center justify-between gap-4 group hover:bg-teal-50/50 dark:hover:bg-slate-800/60 transition-all duration-200"
+                      className="py-3 px-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 group hover:bg-teal-50/50 dark:hover:bg-slate-800/60 transition-all duration-200"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0 border border-teal-100 dark:border-teal-800/40 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-2xs">
                           {getCategoryIcon(cat.icon)}
                         </div>
-                        <div>
-                          <h4 className="font-bold text-xs text-neutral-900 dark:text-white flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-xs text-neutral-900 dark:text-white flex items-center gap-1.5 flex-wrap">
                             <span className="group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{cat.title}</span>
                             <span className="text-[10px] text-neutral-400 dark:text-slate-500 font-mono bg-neutral-100 dark:bg-slate-800 px-1.5 py-0.2 rounded border border-neutral-200 dark:border-slate-700">
                               /{cat.slug}
                             </span>
                           </h4>
-                          <p className="text-[11px] text-neutral-500 dark:text-slate-400 mt-0.5 max-w-sm line-clamp-1">
+                          <p className="text-[11px] text-neutral-500 dark:text-slate-400 mt-0.5 line-clamp-1">
                             {cat.description || "بدون توضیحات"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                      <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
                         <div className="text-left text-[11px]">
                           <span className="font-bold text-teal-600 dark:text-teal-400 block font-mono">
                             {formatNumber(activeCount)} فعال

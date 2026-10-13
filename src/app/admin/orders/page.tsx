@@ -725,10 +725,118 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 rounded-2xl overflow-hidden shadow-card">
+      {/* Mobile Orders Card View (Visible on < md) */}
+      <div className="md:hidden space-y-3">
+        {paginatedOrders.map((order) => (
+          <div
+            key={order.id}
+            onClick={() => openOrderDetails(order)}
+            className="p-4 rounded-2xl border border-admin-borderLight dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm transition-all active:scale-[0.99] cursor-pointer"
+          >
+            {/* Header: Order Number + Date + Status Badge */}
+            <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="font-mono text-xs font-bold text-brand-primary dark:text-teal-400">
+                  #{order.orderNumber}
+                </span>
+                <span className="block text-[10px] text-slate-400 mt-0.5">
+                  {toPersianDateTime(order.createdAt)}
+                </span>
+              </div>
+
+              <div onClick={(e) => e.stopPropagation()}>
+                <select
+                  value={order.status}
+                  onChange={(e) => {
+                    const adminInfo = { id: user?.id, name: user?.name, phone: user?.phone, role: user?.role || "SUPER_ADMIN" };
+                    updateOrderStatus(order.id, e.target.value as Order["status"], undefined, adminInfo);
+                  }}
+                  className={`text-[11px] font-bold py-1 px-2 rounded-lg border outline-none cursor-pointer ${
+                    order.status === "delivered"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : order.status === "processing"
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : order.status === "refund_requested" || order.status === "cancelled"
+                      ? "bg-rose-50 text-rose-700 border-rose-200"
+                      : order.status === "refunded"
+                      ? "bg-purple-50 text-purple-700 border-purple-200"
+                      : "bg-red-50 text-red-700 border-red-200"
+                  }`}
+                >
+                  <option value="delivered">تحویل شده</option>
+                  <option value="processing">در حال پردازش</option>
+                  <option value="cancelled">لغو شده</option>
+                  <option value="refund_requested">درخواست عودت</option>
+                  <option value="refunded">عودت داده شده</option>
+                  <option value="failed">ناموفق</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Product & Customer */}
+            <div className="mt-3 space-y-1">
+              <div className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">
+                {order.items[0]?.productTitle}
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>{order.customerEmail}</span>
+                <span className="font-mono text-[11px]">{order.customerPhone || "---"}</span>
+              </div>
+            </div>
+
+            {/* Price & Gateway */}
+            <div className="grid grid-cols-2 gap-2 mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-xs">
+              <div>
+                <span className="text-[10px] text-neutral-400 dark:text-slate-400 block">مبلغ سفارش:</span>
+                <span className="font-black text-slate-900 dark:text-white text-sm">
+                  {formatPrice(order.totalPriceToman)} <span className="text-[10px] font-normal text-neutral-500">تومان</span>
+                </span>
+              </div>
+              <div className="text-left" dir="ltr">
+                <span className="text-[10px] text-neutral-400 dark:text-slate-400 block text-right" dir="rtl">درگاه:</span>
+                <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                  {order.paymentGateway === "cartbecart"
+                    ? "کارت‌به‌کارت"
+                    : order.paymentGateway === "zarinpal"
+                    ? "زرین‌پال"
+                    : order.paymentGateway === "nextpay"
+                    ? "نکست‌پی"
+                    : "تتر TRC20"}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setInvoiceOrder(order)}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold inline-flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>فاکتور</span>
+              </button>
+              <button
+                onClick={() => openOrderDetails(order)}
+                className="px-3 py-1.5 text-white bg-brand-primary dark:bg-teal-600 hover:bg-teal-700 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>مشاهده و تحویل</span>
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {currentDisplayOrders.length === 0 && (
+          <div className="p-8 text-center text-xs text-neutral-400 bg-white dark:bg-slate-900 rounded-2xl border border-admin-borderLight dark:border-slate-800">
+            سفارشی با معیارهای فیلتر یافت نشد.
+          </div>
+        )}
+      </div>
+
+      {/* Orders Table (Desktop & Tablet) */}
+      <div className="hidden md:block bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 rounded-2xl overflow-hidden shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse">
+          <table className="min-w-[850px] w-full text-right border-collapse">
             <thead>
               <tr className="bg-admin-container/50 dark:bg-slate-800/80 border-b border-admin-borderLight dark:border-slate-800 text-xs font-bold text-admin-text dark:text-slate-200">
                 <th className="py-3.5 px-4">کد سفارش</th>

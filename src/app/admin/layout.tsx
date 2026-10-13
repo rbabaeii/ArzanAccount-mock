@@ -385,20 +385,20 @@ export default function AdminLayout({
   return (
     <div className="min-h-screen bg-admin-bg dark:bg-slate-950 flex flex-col md:flex-row text-admin-text dark:text-slate-100 transition-colors">
       {/* Mobile Top Header */}
-      <div className="md:hidden bg-admin-primary dark:bg-slate-900 text-white p-4 flex items-center justify-between shadow-md border-b border-white/10 dark:border-slate-800">
+      <div className="md:hidden bg-admin-primary dark:bg-slate-900 text-white p-2.5 sm:p-4 flex items-center justify-between shadow-md border-b border-white/10 dark:border-slate-800 gap-1.5">
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-1.5 hover:bg-white/10 dark:hover:bg-slate-800 rounded-lg"
+          className="p-1.5 hover:bg-white/10 dark:hover:bg-slate-800 rounded-lg shrink-0"
           aria-label="باز کردن منو"
         >
-          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          {isSidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
-        <span className="font-black text-sm">کنترل سنتر ارزان اکانت</span>
-        <div className="flex items-center gap-1.5">
+        <span className="font-black text-xs xs:text-sm truncate">کنترل سنتر</span>
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <select
             value={user?.role || "SUPER_ADMIN"}
             onChange={(e) => switchAdminRole(e.target.value as UserRole)}
-            className="bg-white/10 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg outline-none cursor-pointer max-w-[110px] truncate"
+            className="bg-white/10 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg outline-none cursor-pointer max-w-[85px] xs:max-w-[110px] truncate"
             title="سوییچ نقش‌های مدیر (RBAC)"
           >
             <option value="SUPER_ADMIN" className="bg-slate-900 text-white">مدیر ارشد</option>
@@ -406,9 +406,9 @@ export default function AdminLayout({
             <option value="FINANCE_ADMIN" className="bg-slate-900 text-white">مدیر مالی</option>
             <option value="SUPPORT_ADMIN" className="bg-slate-900 text-white">مدیر پشتیبانی</option>
           </select>
-          <ThemeToggle />
-          <NextLink href="/" className="p-1.5 hover:bg-white/10 dark:hover:bg-slate-800 rounded-lg" title="فروشگاه">
-            <ShoppingBag className="w-5 h-5" />
+          <ThemeToggle className="shrink-0" />
+          <NextLink href="/" className="p-1.5 hover:bg-white/10 dark:hover:bg-slate-800 rounded-lg shrink-0" title="فروشگاه">
+            <ShoppingBag className="w-4.5 h-4.5" />
           </NextLink>
         </div>
       </div>
@@ -671,7 +671,7 @@ export default function AdminLayout({
         )}
 
         {/* Page Body with Route Guard Check */}
-        <main className="flex-1 p-4 sm:p-8 overflow-x-hidden">
+        <main className="flex-1 p-3 sm:p-8 overflow-x-hidden">
           {isCurrentRouteAllowed() ? (
             children
           ) : (

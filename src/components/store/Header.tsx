@@ -146,25 +146,25 @@ export default function Header() {
       </div>
 
       {/* Main Navigation Bar */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-8">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-1.5 sm:gap-8">
         {/* Logo & Mobile Menu Toggle */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-1.5 sm:p-2 text-brand-dark dark:text-slate-200 hover:bg-neutral-100 dark:hover:bg-slate-800 rounded-lg"
+            className="md:hidden p-1.5 text-brand-dark dark:text-slate-200 hover:bg-neutral-100 dark:hover:bg-slate-800 rounded-lg shrink-0"
             aria-label="باز کردن منو"
           >
             {mobileMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
 
-          <Link href="/" className="flex items-center gap-2 sm:gap-3 group">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-3 group shrink-0 min-w-0">
             {settings.siteLogo || settings.siteLogoDark ? (
               <div className="relative flex items-center shrink-0">
                 {settings.siteLogo && (
                   <img
                     src={settings.siteLogo}
                     alt={settings.siteName || "ارزان اکانت"}
-                    className={`h-9 sm:h-11 w-auto max-w-[140px] object-contain ${
+                    className={`h-8 sm:h-11 w-auto max-w-[110px] sm:max-w-[140px] object-contain ${
                       settings.siteLogoDark ? "dark:hidden" : ""
                     }`}
                   />
@@ -173,19 +173,19 @@ export default function Header() {
                   <img
                     src={settings.siteLogoDark}
                     alt={settings.siteName || "ارزان اکانت"}
-                    className={`h-9 sm:h-11 w-auto max-w-[140px] object-contain ${
+                    className={`h-8 sm:h-11 w-auto max-w-[110px] sm:max-w-[140px] object-contain ${
                       settings.siteLogo ? "hidden dark:block" : ""
                     }`}
                   />
                 ) : null}
               </div>
             ) : (
-              <div className="w-9 h-9 sm:w-11 sm:h-11 bg-brand-primary text-white flex items-center justify-center font-black text-base sm:text-xl rounded-xl shadow-sm group-hover:bg-brand-primaryDark transition-colors shrink-0">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 bg-brand-primary text-white flex items-center justify-center font-black text-sm sm:text-xl rounded-xl shadow-sm group-hover:bg-brand-primaryDark transition-colors shrink-0">
                 {settings.siteName ? settings.siteName.substring(0, 2) : "ار"}
               </div>
             )}
-            <div className="flex flex-col">
-              <span className="text-base sm:text-xl font-black tracking-tight text-brand-dark dark:text-white whitespace-nowrap">
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs xs:text-sm sm:text-xl font-black tracking-tight text-brand-dark dark:text-white truncate max-w-[110px] xs:max-w-[150px] sm:max-w-none">
                 {settings.siteName || "ارزان اکانت"}
               </span>
               <span className="text-[10px] sm:text-[11px] text-brand-muted dark:text-slate-400 font-medium hidden sm:block">
@@ -201,21 +201,22 @@ export default function Header() {
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <div className="hidden lg:flex items-center gap-2 text-xs text-brand-muted dark:text-teal-200 bg-teal-50/70 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-800/60 px-3 py-2 rounded-xl">
             <ShieldCheck className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" />
             <span className="font-semibold text-teal-900 dark:text-teal-200">پرداخت امن و تحویل خودکار</span>
           </div>
 
           {/* Theme Toggle Button */}
-          <ThemeToggle />
+          <ThemeToggle className="shrink-0" />
 
           {/* Cart Icon & Badge */}
           <Link
             href="/cart"
-            className="relative p-2.5 text-brand-dark dark:text-slate-200 hover:text-brand-primary dark:hover:text-teal-300 hover:bg-brand-surfaceDim dark:hover:bg-slate-800 rounded-xl border border-brand-border dark:border-slate-700 transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2 shadow-2xs"
+            aria-label="سبد خرید"
+            className="relative p-2 sm:p-2.5 text-brand-dark dark:text-slate-200 hover:text-brand-primary dark:hover:text-teal-300 hover:bg-brand-surfaceDim dark:hover:bg-slate-800 rounded-xl border border-brand-border dark:border-slate-700 transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-1.5 sm:gap-2 shadow-2xs shrink-0"
           >
-            <ShoppingBag className="w-5 h-5 text-brand-primary dark:text-teal-400" />
+            <ShoppingBag className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-brand-primary dark:text-teal-400" />
             <span className="hidden sm:inline text-xs font-bold text-brand-dark dark:text-slate-200">سبد خرید</span>
             {totalCartCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-brand-accent text-white font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center shadow-xs animate-pulse">
@@ -313,24 +314,25 @@ export default function Header() {
           ) : (
             <button
               onClick={openLoginModal}
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl border border-brand-primary/30 dark:border-teal-600/40 bg-teal-50/60 dark:bg-teal-950/50 hover:bg-teal-100/70 dark:hover:bg-teal-900/60 text-brand-primary dark:text-teal-300 font-bold text-xs transition-all duration-200 hover:scale-105 active:scale-95 shadow-2xs"
+              className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl border border-brand-primary/30 dark:border-teal-600/40 bg-teal-50/60 dark:bg-teal-950/50 hover:bg-teal-100/70 dark:hover:bg-teal-900/60 text-brand-primary dark:text-teal-300 font-bold text-xs transition-all duration-200 hover:scale-105 active:scale-95 shadow-2xs shrink-0"
             >
-              <User className="w-4 h-4 text-brand-primary dark:text-teal-300" />
-              <span>ورود / ثبت‌نام</span>
+              <User className="w-4 h-4 text-brand-primary dark:text-teal-300 shrink-0" />
+              <span className="hidden xs:inline">ورود / ثبت‌نام</span>
+              <span className="inline xs:hidden">ورود</span>
             </button>
           )}
         </div>
       </div>
 
       {/* Categories Bar */}
-      <nav className="bg-white dark:bg-slate-900/90 border-t border-brand-border dark:border-slate-800 px-3 sm:px-4 transition-colors relative z-30">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4 py-2 text-xs font-semibold text-brand-muted dark:text-slate-400">
+      <nav className="bg-white dark:bg-slate-900/90 border-t border-brand-border dark:border-slate-800 px-2.5 sm:px-4 transition-colors relative z-30 overflow-hidden">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4 py-1.5 sm:py-2 text-xs font-semibold text-brand-muted dark:text-slate-400">
           {/* Categories Dropdown (Fixed, not scrolled) */}
           <div className="relative shrink-0">
             <button
               type="button"
               onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-900 dark:text-teal-300 font-bold hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all border border-teal-200/60 dark:border-teal-800/60 shadow-2xs text-xs"
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 text-teal-900 dark:text-teal-300 font-bold hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all border border-teal-200/60 dark:border-teal-800/60 shadow-2xs text-[11px] sm:text-xs"
             >
               <Layers className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" />
               <span>دسته‌بندی‌ها</span>

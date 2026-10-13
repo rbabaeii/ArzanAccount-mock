@@ -516,7 +516,7 @@ export default function AdminWithdrawalsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
+            <table className="min-w-[850px] w-full text-right text-xs">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-admin-borderLight dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold">
                   <th className="py-3.5 pr-4">شناسه و تاریخ</th>

@@ -617,7 +617,7 @@ function AdminActivitiesContent() {
       {/* Main Activity Table */}
       <div className="bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 rounded-2xl overflow-hidden shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse text-xs">
+          <table className="min-w-[850px] w-full text-right border-collapse text-xs">
             <thead>
               <tr className="bg-admin-bg dark:bg-slate-800/80 border-b border-admin-borderLight dark:border-slate-800 font-bold text-admin-text dark:text-slate-200">
                 <th className="py-3.5 px-4 w-12 text-center">#</th>

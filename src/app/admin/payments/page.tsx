@@ -689,7 +689,7 @@ export default function AdminPaymentsPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
+            <table className="min-w-[950px] w-full text-right text-xs">
               <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="py-3.5 px-4 font-bold">شناسه / مرجع</th>

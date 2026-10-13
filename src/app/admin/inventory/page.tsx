@@ -160,7 +160,7 @@ export default function AdminInventoryPage() {
       {/* Stock Table */}
       <div className="bg-white dark:bg-slate-900 border border-admin-borderLight dark:border-slate-800 rounded-2xl overflow-hidden shadow-card">
         <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse text-xs">
+          <table className="min-w-[800px] w-full text-right border-collapse text-xs">
             <thead>
               <tr className="bg-admin-container/60 dark:bg-slate-800/80 border-b border-admin-borderLight dark:border-slate-800 font-bold text-admin-text dark:text-slate-200">
                 <th className="py-3.5 px-4">کد مرجع</th>

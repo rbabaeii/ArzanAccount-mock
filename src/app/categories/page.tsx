@@ -130,7 +130,7 @@ export default function CategoriesArchivePage() {
 
       <Header />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 relative z-10 pb-24 sm:pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 relative z-10 pb-32 sm:pb-16">
         {/* Breadcrumb Navigation */}
         <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-brand-muted dark:text-slate-400">
           <Link href="/" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
