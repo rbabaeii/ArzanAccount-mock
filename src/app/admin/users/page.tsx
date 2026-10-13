@@ -24,6 +24,8 @@ import {
   Activity,
   Mail,
   Send,
+  Wallet,
+  Coins,
 } from "lucide-react";
 import Pagination from "@/components/ui/Pagination";
 
@@ -77,6 +79,54 @@ export default function AdminUsersPage() {
   const [new2FA, setNew2FA] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Wallet Modal State
+  const [selectedUserForWallet, setSelectedUserForWallet] = useState<UserItem | null>(null);
+  const [walletAmountInput, setWalletAmountInput] = useState<number>(50000);
+  const [walletOperation, setWalletOperation] = useState<"ADD" | "SET">("ADD");
+  const [isSubmittingWallet, setIsSubmittingWallet] = useState(false);
+
+  const handleOpenWalletModal = (targetUser: UserItem) => {
+    setSelectedUserForWallet(targetUser);
+    setWalletAmountInput(50000);
+    setWalletOperation("ADD");
+  };
+
+  const handleSaveWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForWallet) return;
+    setIsSubmittingWallet(true);
+    try {
+      const amount = Number(walletAmountInput) || 0;
+      let targetBalance = selectedUserForWallet.walletBalanceToman || 0;
+      if (walletOperation === "ADD") {
+        targetBalance += amount;
+      } else {
+        targetBalance = Math.max(0, amount);
+      }
+
+      await api.updateUserProfile(selectedUserForWallet.id, {
+        walletBalanceToman: targetBalance,
+        directDepositBalance: targetBalance,
+      });
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === selectedUserForWallet.id ? { ...u, walletBalanceToman: targetBalance } : u
+        )
+      );
+
+      setToastMessage(`موجودی کیف پول «${selectedUserForWallet.name}» به ${formatPrice(targetBalance)} تومان تغییر یافت.`);
+      setTimeout(() => setToastMessage(null), 3500);
+      setSelectedUserForWallet(null);
+    } catch (err: any) {
+      console.error(err);
+      setToastMessage("خطا در به‌روزرسانی موجودی کیف پول.");
+      setTimeout(() => setToastMessage(null), 3500);
+    } finally {
+      setIsSubmittingWallet(false);
+    }
+  };
 
   // User Direct Email Modal State
   const [selectedUserForEmail, setSelectedUserForEmail] = useState<UserItem | null>(null);
@@ -588,8 +638,18 @@ export default function AdminUsersPage() {
 
                     {/* Wallet */}
                     <td className="py-3.5 px-4 font-mono font-bold text-neutral-700 dark:text-slate-300">
-                      {formatPrice(u.walletBalanceToman || 0)}{" "}
-                      <span className="text-[10px] font-sans text-neutral-400">تومان</span>
+                      <div className="flex items-center gap-2">
+                        <span>{formatPrice(u.walletBalanceToman || 0)}</span>
+                        <span className="text-[10px] font-sans text-neutral-400">تومان</span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenWalletModal(u)}
+                          className="p-1 rounded-md text-teal-600 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-slate-800 transition-colors"
+                          title="شارژ یا ویرایش موجودی کیف پول"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
 
                     {/* Status Toggle */}
@@ -1022,6 +1082,126 @@ export default function AdminUsersPage() {
                 >
                   <Send className={`w-4 h-4 ${isSendingEmailModal ? "animate-pulse" : ""}`} />
                   <span>{isSendingEmailModal ? "در حال ارسال..." : "ارسال ایمیل به کاربر"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet Balance Adjust Modal */}
+      {selectedUserForWallet && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  شارژ و ویرایش موجودی کیف پول کاربر
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedUserForWallet(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400">نام کاربر:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{selectedUserForWallet.name}</span>
+              </div>
+              <div className="flex justify-between items-center font-mono">
+                <span className="text-slate-500 dark:text-slate-400 font-sans">شماره تماس:</span>
+                <span>{selectedUserForWallet.phone || "-"}</span>
+              </div>
+              <div className="flex justify-between items-center font-mono pt-1 border-t border-slate-200 dark:border-slate-700">
+                <span className="text-teal-700 dark:text-teal-300 font-sans font-bold">موجودی فعلی کیف پول:</span>
+                <span className="font-bold text-teal-800 dark:text-teal-400">
+                  {formatPrice(selectedUserForWallet.walletBalanceToman || 0)} تومان
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveWallet} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  نوع عملیات:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWalletOperation("ADD")}
+                    className={`py-2 px-3 rounded-xl border font-bold transition-all ${
+                      walletOperation === "ADD"
+                        ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                    }`}
+                  >
+                    افزایش موجودی (+شارژ)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWalletOperation("SET")}
+                    className={`py-2 px-3 rounded-xl border font-bold transition-all ${
+                      walletOperation === "SET"
+                        ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                    }`}
+                  >
+                    تنظیم مبلغ دقیق
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  {walletOperation === "ADD" ? "مبلغ افزایشی (تومان):" : "موجودی جدید نهایی (تومان):"}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={walletAmountInput}
+                  onChange={(e) => setWalletAmountInput(Number(e.target.value))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-2 px-3 font-mono font-bold text-base outline-none focus:border-teal-500"
+                />
+              </div>
+
+              {/* Quick Presets */}
+              {walletOperation === "ADD" && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-slate-400">مبالغ آماده:</span>
+                  {[20000, 50000, 100000, 200000, 500000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setWalletAmountInput(amt)}
+                      className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-mono hover:bg-teal-50 dark:hover:bg-slate-700"
+                    >
+                      +{formatPrice(amt)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserForWallet(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingWallet}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSubmittingWallet ? "در حال ثبت..." : "ذخیره موجودی"}</span>
                 </button>
               </div>
             </form>

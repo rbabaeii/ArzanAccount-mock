@@ -83,7 +83,7 @@ function AdminActivitiesContent() {
     if (qAdmin && qAdmin !== selectedAdminId) {
       setSelectedAdminId(qAdmin);
     }
-  }, [searchParams]);
+  }, [searchParams, selectedAdminId]);
 
   // Load real admins list from backend
   useEffect(() => {

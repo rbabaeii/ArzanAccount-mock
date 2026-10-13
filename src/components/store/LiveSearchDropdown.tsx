@@ -116,7 +116,7 @@ export const LiveSearchDropdown: React.FC<LiveSearchDropdownProps> = ({
     }, 140);
 
     return () => clearTimeout(timer);
-  }, [query, scope]);
+  }, [query, scope, store?.products]);
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

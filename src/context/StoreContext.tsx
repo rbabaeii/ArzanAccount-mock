@@ -52,6 +52,7 @@ interface StoreContextType {
   createProduct: (product: Partial<Product>, adminInfo?: any) => Promise<Product | undefined>;
   toggleProductActive: (id: string, adminInfo?: any) => Promise<void>;
   updateProduct: (id: string, updates: Partial<Product>, adminInfo?: any) => Promise<void>;
+  deleteProduct: (id: string, adminInfo?: any) => Promise<void>;
   addCategory: (category: Omit<Category, "id">) => Promise<void>;
   updateCategory: (id: string, updates: Partial<Category>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -459,6 +460,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     // Connect to backend
     refreshFromBackend();
+
+    const handleMockDbSync = () => {
+      refreshFromBackend();
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("arzan_mock_db_sync", handleMockDbSync);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("arzan_mock_db_sync", handleMockDbSync);
+      }
+    };
   }, [refreshFromBackend]);
 
   // Cart save helper
@@ -620,6 +633,45 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error("Error updating product on backend:", error);
+    }
+  };
+
+  // Delete Product
+  const deleteProduct = async (id: string, adminInfo?: any) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+    try {
+      let activeAdmin = adminInfo;
+      if (!activeAdmin && typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("arzan_auth_user");
+          if (stored) activeAdmin = JSON.parse(stored);
+        } catch {}
+      }
+
+      await api.deleteProduct(id, activeAdmin?.name || "مدیر سیستم");
+      const logs = await api.getAuditLogs(30);
+      if (Array.isArray(logs)) {
+        setAuditLogs(
+          logs.map((log: any) => ({
+            id: log.id,
+            action: log.action,
+            details: log.details,
+            user: log.user,
+            adminId: log.adminId,
+            adminName: log.adminName,
+            adminPhone: log.adminPhone,
+            timestamp: toEnglishDigits(
+              new Intl.DateTimeFormat("fa-IR", {
+                dateStyle: "short",
+                timeStyle: "short",
+              }).format(new Date(log.createdAt))
+            ),
+            type: (log.type as any) || "product",
+          }))
+        );
+      }
+    } catch (error) {
+      console.error("Error deleting product on backend:", error);
     }
   };
 
@@ -1467,6 +1519,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         createProduct,
         toggleProductActive,
         updateProduct,
+        deleteProduct,
         addCategory,
         updateCategory,
         deleteCategory,

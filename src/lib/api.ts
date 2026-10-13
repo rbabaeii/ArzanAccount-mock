@@ -1,84 +1,14 @@
 /**
- * API Client for arzanAccount NestJS Backend Gateway
- * Base URL defaults to http://localhost:4000/api/v1
+ * Standalone Local API Client for arzanAccount
+ * Fully backed by the in-memory & localStorage mockDb engine.
+ * Zero dependency on external backend server.
  */
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== "undefined" ? "/api/v1" : "http://127.0.0.1:4000/api/v1");
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-  timestamp?: string;
-}
-
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const defaultHeaders: Record<string, string> = {};
-  if (typeof FormData !== "undefined" && !(options.body instanceof FormData)) {
-    defaultHeaders["Content-Type"] = "application/json";
-  } else if (typeof FormData === "undefined") {
-    defaultHeaders["Content-Type"] = "application/json";
-  }
-
-  // Attach JWT token from localStorage if present
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("arzan_auth_token");
-    if (token) {
-      defaultHeaders["Authorization"] = `Bearer ${token}`;
-    }
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: options.signal || controller.signal,
-      headers: {
-        ...defaultHeaders,
-        ...(options.headers as Record<string, string>),
-      },
-      cache: "no-store",
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      let parsedMsg = "";
-      try {
-        const errJson = JSON.parse(errorBody);
-        parsedMsg = Array.isArray(errJson.message)
-          ? errJson.message.join("، ")
-          : errJson.message || errJson.error;
-      } catch {
-        parsedMsg = errorBody;
-      }
-      throw new Error(parsedMsg || `خطای سرور [${response.status}]`);
-    }
-
-    const json: any = await response.json();
-    if (json && json.data !== undefined) {
-      return json.data;
-    }
-    return json;
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") {
-      throw new Error(
-        "پاسخی از سرور در زمان مقرر دریافت نشد (اتمام مهلت ارتباط). لطفاً اتصال اینترنت خود را بررسی و مجدداً تلاش نمایید."
-      );
-    }
-    throw err;
-  }
-}
+import { mockDb, getMockDb } from "./mockDb";
 
 export const api = {
-  getSettings: () => request<any>("/settings"),
+  // Settings
+  getSettings: () => mockDb.getSettings(),
 
   updateBrandingSettings: (data: {
     siteLogo?: string;
@@ -93,465 +23,355 @@ export const api = {
     siteInstagram?: string;
     siteEnamad?: string;
     user?: string;
-  }) =>
-    request<any>("/settings/branding", {
-      method: "PUT",
-      body: JSON.stringify(data),
+  }) => mockDb.updateSettings(data),
+
+  // Categories
+  getCategories: () => mockDb.getCategories(),
+
+  createCategory: (data: { title: string; titleFa?: string; slug: string; description?: string; icon?: string }) =>
+    mockDb.createCategory({
+      title: data.titleFa || data.title,
+      slug: data.slug,
+      description: data.description || "",
+      icon: data.icon || "Sparkles",
+      orderIndex: 0,
     }),
 
-  updateCurrency: (params: {
+  addCategory: (data: { title: string; titleFa?: string; slug: string; description?: string; icon?: string }) =>
+    mockDb.createCategory({
+      title: data.titleFa || data.title,
+      slug: data.slug,
+      description: data.description || "",
+      icon: data.icon || "Sparkles",
+      orderIndex: 0,
+    }),
+
+  updateCategory: (id: string, data: { title?: string; slug?: string; description?: string; icon?: string }) =>
+    mockDb.updateCategory(id, data),
+
+  deleteCategory: (id: string) => mockDb.deleteCategory(id),
+
+  // Products
+  getProducts: (params?: { categoryId?: string; search?: string; limit?: number; offset?: number }) =>
+    mockDb.getProducts(params),
+
+  getProductById: (id: string) => mockDb.getProductById(id),
+
+  getLiveProduct: (id: string) => mockDb.getProductById(id),
+
+  createProduct: (data: any, adminUser = "مدیر سیستم") => mockDb.createProduct(data, adminUser),
+
+  updateProduct: (id: string, data: any, adminUser = "مدیر سیستم") =>
+    mockDb.updateProduct(id, data, adminUser),
+
+  deleteProduct: (id: string, adminUser = "مدیر سیستم") => mockDb.deleteProduct(id, adminUser),
+
+  toggleProductActive: (id: string, adminUser = "مدیر سیستم") =>
+    mockDb.toggleProductActive(id, adminUser),
+
+  validateLiveStock: (productId: string, quantity: number) =>
+    mockDb.validateLiveStock(productId, quantity),
+
+  triggerSync: async (user?: string) => api.syncWithIrMarket(),
+
+  updateCurrency: async (data: {
+    usdToRialRate?: number;
     rate?: number;
     margin?: number;
+    defaultMarginPercent?: number;
     maxPurchaseRatioDenominator?: number;
     purchaseRatioExemptionThreshold?: number;
     orderCashbackPercent?: number;
     user?: string;
   }) =>
-    request<any>("/settings/currency", {
-      method: "PUT",
-      body: JSON.stringify(params),
+    mockDb.updateSettings({
+      usdToRialRate: data.usdToRialRate ?? data.rate,
+      defaultMarginPercent: data.defaultMarginPercent ?? data.margin,
+      maxPurchaseRatioDenominator: data.maxPurchaseRatioDenominator,
+      purchaseRatioExemptionThreshold: data.purchaseRatioExemptionThreshold,
+      orderCashbackPercent: data.orderCashbackPercent,
     }),
 
-  syncCurrencyNow: (user = "مدیر سیستم (استعلام دستی)") =>
-    request<any>("/settings/currency/sync-now", {
-      method: "POST",
-      body: JSON.stringify({ user }),
-    }),
+  // IrMarket & Currency Sync simulation
+  syncWithIrMarket: async () => {
+    const db = getMockDb();
+    db.settings.lastSyncTime = new Intl.DateTimeFormat("fa-IR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date());
+    return {
+      success: true,
+      syncedCount: db.products.length,
+      timestamp: db.settings.lastSyncTime,
+    };
+  },
 
-  updateCurrencySyncConfig: (config: {
+  syncCurrencyNow: async (user?: string) => {
+    const db = getMockDb();
+    const currentRate = db.settings.usdToRialRate || 720000;
+    const delta = Math.floor((Math.random() - 0.5) * 6000);
+    const newRate = Math.max(680000, currentRate + delta);
+    db.settings.usdToRialRate = newRate;
+    db.settings.lastCurrencyPriceToman = Math.round(newRate / 10);
+    db.settings.lastCurrencySyncTime = new Intl.DateTimeFormat("fa-IR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date());
+    return {
+      success: true,
+      priceToman: db.settings.lastCurrencyPriceToman,
+      usdToRialRate: newRate,
+      changePercent: Number(((delta / currentRate) * 100).toFixed(2)),
+      timestamp: db.settings.lastCurrencySyncTime,
+      syncTime: db.settings.lastCurrencySyncTime,
+      settings: db.settings,
+    };
+  },
+
+  updateCurrencySyncConfig: async (config: {
     apiKey?: string;
     intervalMinutes?: number;
     enableAutoSync?: boolean;
     user?: string;
-  }) =>
-    request<any>("/settings/currency/sync-config", {
-      method: "PUT",
-      body: JSON.stringify(config),
-    }),
-
-  getCurrencySyncStatus: () =>
-    request<any>("/settings/currency/sync-status"),
-
-  getAuditLogs: (limit = 50) => request<any[]>(`/settings/logs?limit=${limit}`),
-
-  // Catalog & Products
-  getProducts: (params?: {
-    isActive?: boolean;
-    categoryId?: string;
-    search?: string;
-    isFlashDeal?: boolean;
-    isFeatured?: boolean;
-    limit?: number;
-    offset?: number;
   }) => {
-    const query = new URLSearchParams();
-    if (params?.isActive !== undefined) query.set("isActive", String(params.isActive));
-    if (params?.categoryId) query.set("categoryId", params.categoryId);
-    if (params?.search) query.set("search", params.search);
-    if (params?.isFlashDeal !== undefined) query.set("isFlashDeal", String(params.isFlashDeal));
-    if (params?.isFeatured !== undefined) query.set("isFeatured", String(params.isFeatured));
-    if (params?.limit) query.set("limit", String(params.limit));
-    if (params?.offset) query.set("offset", String(params.offset));
-
-    const qs = query.toString();
-    return request<{ products: any[]; totalCount: number }>(`/catalog/products${qs ? `?${qs}` : ""}`);
-  },
-
-  getProductById: (id: string) => request<any>(`/catalog/products/${id}`),
-
-  getLiveProduct: (id: string) => request<any>(`/catalog/products/${id}/live-sync`),
-
-  validateLiveStock: (id: string, quantity = 1) =>
-    request<{ valid: boolean; stockCount: number; inStock: boolean }>(
-      `/catalog/products/${id}/validate-stock`,
-      {
-        method: "POST",
-        body: JSON.stringify({ quantity }),
-      }
-    ),
-
-  toggleProductActive: (id: string, adminUser?: any) => {
-    const userDisplay = typeof adminUser === "object" ? adminUser?.name : (typeof adminUser === "string" ? adminUser : undefined);
-    const adminId = typeof adminUser === "object" ? adminUser?.id : undefined;
-    const adminName = typeof adminUser === "object" ? adminUser?.name : undefined;
-    const adminPhone = typeof adminUser === "object" ? adminUser?.phone : undefined;
-    return request<any>(`/catalog/products/${id}/toggle-active`, {
-      method: "PUT",
-      body: JSON.stringify({ user: userDisplay, adminId, adminName, adminPhone }),
+    const updated = await mockDb.updateSettings({
+      currencyApiKey: config.apiKey,
+      currencySyncIntervalMinutes: config.intervalMinutes,
+      enableCurrencyAutoSync: config.enableAutoSync,
     });
+    return {
+      success: true,
+      settings: updated,
+    };
   },
 
-  updateProduct: (id: string, updates: any, adminUser?: any) => {
-    const userDisplay = typeof adminUser === "object" ? adminUser?.name : (typeof adminUser === "string" ? adminUser : undefined);
-    const adminId = typeof adminUser === "object" ? adminUser?.id : undefined;
-    const adminName = typeof adminUser === "object" ? adminUser?.name : undefined;
-    const adminPhone = typeof adminUser === "object" ? adminUser?.phone : undefined;
-    return request<any>(`/catalog/products/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ ...updates, user: userDisplay, adminId, adminName, adminPhone }),
-    });
-  },
-
-  createProduct: (data: any, adminUser?: any) => {
-    const userDisplay = typeof adminUser === "object" ? adminUser?.name : (typeof adminUser === "string" ? adminUser : undefined);
-    const adminId = typeof adminUser === "object" ? adminUser?.id : undefined;
-    const adminName = typeof adminUser === "object" ? adminUser?.name : undefined;
-    const adminPhone = typeof adminUser === "object" ? adminUser?.phone : undefined;
-    return request<any>("/catalog/products", {
-      method: "POST",
-      body: JSON.stringify({ ...data, user: userDisplay, adminId, adminName, adminPhone }),
-    });
-  },
+  // Audit Logs
+  getAuditLogs: (limit = 40) => mockDb.getAuditLogs(limit),
 
   // Tag Management
-  getAllTags: () =>
-    request<{ name: string; count: number; sampleProducts: { id: string; title: string }[] }[]>("/catalog/tags"),
+  getAllTags: () => mockDb.getAllTags(),
 
   createTag: (data: { tag: string; productIds?: string[]; user?: string }) =>
-    request<{ tag: string; affectedCount: number }>("/catalog/tags", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mockDb.createTag(data),
 
   renameTag: (data: { oldTag: string; newTag: string; user?: string }) =>
-    request<{ oldTag: string; newTag: string; affectedCount: number }>("/catalog/tags/rename", {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
+    mockDb.renameTag(data),
 
-  deleteTag: (tag: string, user = "مدیر سیستم") =>
-    request<{ tag: string; affectedCount: number }>(`/catalog/tags/${encodeURIComponent(tag)}`, {
-      method: "DELETE",
-      body: JSON.stringify({ user }),
-    }),
+  deleteTag: (tag: string, user = "مدیر سیستم") => mockDb.deleteTag(tag),
 
   assignTag: (data: { tag: string; productIds: string[]; action?: "add" | "remove"; user?: string }) =>
-    request<{ tag: string; action: string; updatedCount: number }>("/catalog/tags/assign", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mockDb.assignTag(data),
 
-  // Categories
-  getCategories: () => request<any[]>("/catalog/categories"),
+  // User Management
+  getUsers: (params?: { search?: string; role?: string; status?: string; limit?: number }) =>
+    mockDb.getUsers(params),
 
-  createCategory: (data: { title: string; titleFa?: string; slug: string; description?: string; icon?: string; orderIndex?: number }) =>
-    request<any>("/catalog/categories", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-
-  updateCategory: (id: string, data: { title?: string; titleFa?: string; slug?: string; description?: string; icon?: string; orderIndex?: number }) =>
-    request<any>(`/catalog/categories/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
-
-  deleteCategory: (id: string) =>
-    request<any>(`/catalog/categories/${id}`, {
-      method: "DELETE",
-    }),
-
-  // irMarket Integration & Sync
-  triggerSync: (triggeredBy = "مدیر سیستم (فرانت‌اند)") =>
-    request<any>("/sync/irmarket", {
-      method: "POST",
-      body: JSON.stringify({ triggeredBy }),
-    }),
-
-  getWalletBalance: () => request<{ success: boolean; balance_usd: number }>("/irmarket/balance"),
-
-  // Pricing
-  getPricingRates: () => request<any>("/pricing/rates"),
-
-  previewPricing: (params: { rate?: number; margin?: number; usdValues?: number[] }) => {
-    const query = new URLSearchParams();
-    if (params.rate) query.set("rate", String(params.rate));
-    if (params.margin) query.set("margin", String(params.margin));
-    if (params.usdValues) query.set("usdValues", params.usdValues.join(","));
-    return request<any[]>(`/pricing/preview?${query.toString()}`);
+  getUserStats: async () => {
+    const res = await mockDb.getUsers();
+    return res.stats;
   },
 
-  // Users & RBAC
-  getUsers: (params?: { role?: string; status?: string; search?: string; limit?: number; offset?: number }) => {
-    const query = new URLSearchParams();
-    if (params?.role) query.set("role", params.role);
-    if (params?.status) query.set("status", params.status);
-    if (params?.search) query.set("search", params.search);
-    if (params?.limit) query.set("limit", String(params.limit));
-    if (params?.offset) query.set("offset", String(params.offset));
-
-    const qs = query.toString();
-    return request<{ users: any[]; totalCount: number }>(`/users${qs ? `?${qs}` : ""}`);
-  },
-
-  getUserStats: () =>
-    request<{
-      totalUsers: number;
-      activeUsers: number;
-      totalAdmins: number;
-      twoFactorCount: number;
-    }>("/users/stats"),
-
-  createUser: (data: any) =>
-    request<any>("/users", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  createUser: (data: any) => mockDb.createUser(data),
 
   updateUserRole: (id: string, role: string, adminUser = "مدیر ارشد") =>
-    request<any>(`/users/${id}/role`, {
-      method: "PUT",
-      body: JSON.stringify({ role, adminUser }),
-    }),
+    mockDb.updateUserRole(id, role, adminUser),
 
   updateUserStatus: (id: string, status: string, adminUser = "مدیر ارشد") =>
-    request<any>(`/users/${id}/status`, {
-      method: "PUT",
-      body: JSON.stringify({ status, adminUser }),
-    }),
+    mockDb.updateUserStatus(id, status, adminUser),
 
-  deleteUser: (id: string, adminUser = "مدیر ارشد") =>
-    request<any>(`/users/${id}`, {
-      method: "DELETE",
-      body: JSON.stringify({ adminUser }),
-    }),
+  deleteUser: (id: string, adminUser = "مدیر ارشد") => mockDb.deleteUser(id, adminUser),
 
   getAdminActivities: (params?: {
     adminId?: string;
     type?: string;
-    startDate?: string;
-    endDate?: string;
     search?: string;
-    sort?: "asc" | "desc";
+    sort?: string;
     limit?: number;
     offset?: number;
-  }) => {
-    const query = new URLSearchParams();
-    if (params?.adminId) query.set("adminId", params.adminId);
-    if (params?.type) query.set("type", params.type);
-    if (params?.startDate) query.set("startDate", params.startDate);
-    if (params?.endDate) query.set("endDate", params.endDate);
-    if (params?.search) query.set("search", params.search);
-    if (params?.sort) query.set("sort", params.sort);
-    if (params?.limit) query.set("limit", String(params.limit));
-    if (params?.offset) query.set("offset", String(params.offset));
+  }) => mockDb.getAdminActivities(params),
 
-    const qs = query.toString();
-    return request<{ activities: any[]; total: number }>(`/users/admin-activities${qs ? `?${qs}` : ""}`);
-  },
-
-  getAdminActivitySummary: (adminId: string) =>
-    request<{ admin: any; stats: any }>(`/users/${adminId}/activity-summary`),
+  getAdminActivitySummary: (adminId: string) => mockDb.getAdminActivitySummary(adminId),
 
   // Auth & OTP
-  sendOtp: (phone: string) =>
-    request<{ success: boolean; message: string; code?: string }>("/auth/send-otp", {
-      method: "POST",
-      body: JSON.stringify({ phone }),
-    }),
+  sendOtp: async (phone: string) => {
+    const db = getMockDb();
+    const user = db.users.find((u) => u.phone === phone);
+    return {
+      success: true,
+      message: "کد تأیید با موفقیت ارسال شد (کد تستی: ۱۱۱۱۱)",
+      code: "11111",
+      user,
+    };
+  },
 
-  verifyOtp: (phone: string, code: string, referralCode?: string) =>
-    request<{ accessToken: string; user: any }>("/auth/verify-otp", {
-      method: "POST",
-      body: JSON.stringify({ phone, code, referralCode }),
-    }),
-
-  sendDirectEmailOtp: (email: string) =>
-    request<{ success: boolean; message: string; email: string; code?: string }>("/auth/send-email-otp-direct", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    }),
-
-  verifyEmailOtp: (email: string, code: string, referralCode?: string) =>
-    request<{ accessToken: string; user: any }>("/auth/verify-email-otp", {
-      method: "POST",
-      body: JSON.stringify({ email, code, referralCode }),
-    }),
-
-  bindReferral: (userId: string, referralCode: string) =>
-    request<any>(`/users/${userId}/bind-referral`, {
-      method: "POST",
-      body: JSON.stringify({ referralCode }),
-    }),
-
-  getUserReferrals: (userId: string) =>
-    request<{
-      referralCode: string;
-      cashbackPercent: number;
-      stats: {
-        totalReferred: number;
-        activeBuyers: number;
-        totalOrdersCount: number;
-        totalEarnedToman: number;
-        totalSpentByReferrals: number;
-      };
-      referrals: {
-        id: string;
-        name: string;
-        phoneMasked: string;
-        emailMasked: string;
-        joinedAt: string;
-        ordersCount: number;
-        totalSpentToman: number;
-        earnedFromUserToman: number;
-      }[];
-    }>(`/users/${userId}/referrals`),
-
-  getMe: () => request<any>("/auth/me"),
-
-  // Live ElasticSearch
-  searchLive: (query: string, scope: "public" | "admin" | "all" = "public", limit = 10) =>
-    request<{
-      products: { item: any; score: number; highlights: string[] }[];
-      categories: { item: any; score: number }[];
-      orders: { item: any; score: number }[];
-      users: { item: any; score: number }[];
-      suggestions: string[];
-      totalMatches: number;
-      query: string;
-      tookMs: number;
-    }>(`/search/live?q=${encodeURIComponent(query)}&scope=${scope}&limit=${limit}`),
-
-  searchByTag: (tag: string, limit = 20) =>
-    request<any[]>(`/search/by-tag?tag=${encodeURIComponent(tag)}&limit=${limit}`),
-
-  getRelatedProducts: (productId: string, limit = 4) =>
-    request<any[]>(`/search/related/${productId}?limit=${limit}`),
-
-  // Media / File Upload
-  uploadFile: async (file: File, folder = "products"): Promise<{ success: boolean; url: string; filename: string; size: number }> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const token = typeof window !== "undefined" ? localStorage.getItem("arzan_auth_token") : null;
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const res = await fetch(`${API_BASE_URL}/upload?folder=${folder}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || "خطا در آپلود فایل.");
+  verifyOtp: async (phone: string, code: string, referralCode?: string) => {
+    if (code !== "11111") {
+      throw new Error("کد تایید وارد شده نامعتبر است (کد تستی ۱۱۱۱۱ است).");
     }
-    return res.json();
+    const db = getMockDb();
+    let user = db.users.find((u) => u.phone === phone);
+    if (!user) {
+      user = await mockDb.createUser({
+        name: "کاربر جدید",
+        phone,
+        role: "USER",
+        status: "ACTIVE",
+        walletBalanceToman: 0,
+      });
+    }
+    const token = `mock-jwt-token-${user.id}-${Date.now()}`;
+    return { accessToken: token, user };
   },
 
-  // Email & SMTP Management
-  getEmailSettings: () => request<any>("/email/settings"),
-
-  updateEmailSettings: (config: any, user = "مدیر ارشد") =>
-    request<any>("/email/settings", {
-      method: "PUT",
-      body: JSON.stringify({ config, user }),
-    }),
-
-  sendTestEmail: (to: string, template = "test") =>
-    request<any>("/email/test", {
-      method: "POST",
-      body: JSON.stringify({ to, template }),
-    }),
-
-  getEmailStats: () => request<any>("/email/stats"),
-
-  getEmailLogs: (params?: {
-    status?: string;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }) => {
-    const q = new URLSearchParams();
-    if (params?.status && params.status !== "all") q.set("status", params.status);
-    if (params?.search) q.set("search", params.search);
-    if (params?.limit) q.set("limit", String(params.limit));
-    if (params?.offset) q.set("offset", String(params.offset));
-    const qs = q.toString();
-    return request<{ logs: any[]; total: number }>(`/email/logs${qs ? `?${qs}` : ""}`);
+  sendDirectEmailOtp: async (email: string) => {
+    return {
+      success: true,
+      message: "کد تأیید به ایمیل شما ارسال شد (کد تستی: ۱۱۱۱۱)",
+      code: "11111",
+      email,
+    };
   },
 
-  // SMS Gateway Management
-  getSmsSettings: () => request<any>("/sms/settings"),
+  verifyEmailOtp: async (email: string, code: string, referralCode?: string) => {
+    if (code !== "11111") {
+      throw new Error("کد تایید وارد شده نامعتبر است.");
+    }
+    const db = getMockDb();
+    let user = db.users.find((u) => u.email === email);
+    if (!user) {
+      user = await mockDb.createUser({
+        name: email.split("@")[0],
+        email,
+        phone: "0918" + Math.floor(1000000 + Math.random() * 9000000),
+        role: "USER",
+        status: "ACTIVE",
+        walletBalanceToman: 0,
+      });
+    }
+    const token = `mock-jwt-token-${user.id}-${Date.now()}`;
+    return { accessToken: token, user };
+  },
 
-  updateSmsSettings: (config: any, user = "مدیر ارشد") =>
-    request<any>("/sms/settings", {
-      method: "PUT",
-      body: JSON.stringify({ config, user }),
-    }),
+  bindReferral: async (userId: string, referralCode: string) => {
+    return {
+      success: true,
+      message: "کد معرف با موفقیت ثبت شد.",
+      referredByCode: referralCode,
+    };
+  },
+
+  getUserReferrals: async (userId: string) => {
+    return {
+      referralCode: "ARZAN-0000",
+      cashbackPercent: 10,
+      stats: {
+        totalReferred: 8,
+        activeBuyers: 5,
+        totalOrdersCount: 14,
+        totalEarnedToman: 180000,
+        totalSpentByReferrals: 1800000,
+      },
+      referrals: [
+        {
+          id: "ref-1",
+          name: "علی رضایی",
+          phoneMasked: "0912***6789",
+          emailMasked: "a***i@yahoo.com",
+          joinedAt: "۱۴۰۶/۰۱/۱۰",
+          ordersCount: 4,
+          totalSpentToman: 520000,
+          earnedFromUserToman: 52000,
+        },
+        {
+          id: "ref-2",
+          name: "سارا طاهری",
+          phoneMasked: "0935***2233",
+          emailMasked: "s***a@test.com",
+          joinedAt: "۱۴۰۶/۰۲/۰۵",
+          ordersCount: 2,
+          totalSpentToman: 340000,
+          earnedFromUserToman: 34000,
+        },
+        {
+          id: "ref-3",
+          name: "مهدی محمدپور",
+          phoneMasked: "0919***5432",
+          emailMasked: "m***i@gmail.com",
+          joinedAt: "۱۴۰۶/۰۳/۱۴",
+          ordersCount: 1,
+          totalSpentToman: 200000,
+          earnedFromUserToman: 20000,
+        },
+      ],
+    };
+  },
+
+  getMe: async () => {
+    if (typeof window === "undefined") return null;
+    const cached = localStorage.getItem("arzan_cached_user");
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {}
+    }
+    const db = getMockDb();
+    return db.users[0] || null;
+  },
+
+  searchLive: (query: string, scope: "public" | "admin" | "all" = "public", limit = 10) =>
+    mockDb.searchLive(query, scope, limit),
+
+  searchByTag: (tag: string, limit = 20) => mockDb.searchByTag(tag, limit),
+
+  getRelatedProducts: (productId: string, limit = 4) => mockDb.getRelatedProducts(productId, limit),
+
+  uploadFile: (file: File, folder = "products") => mockDb.uploadFile(file, folder),
+
+  // Email
+  getEmailSettings: () => mockDb.getEmailSettings(),
+
+  updateEmailSettings: (config: any, user = "مدیر ارشد") => mockDb.updateEmailSettings(config),
+
+  sendTestEmail: (to: string, template = "test") => mockDb.sendTestEmail(to, template),
+
+  getEmailStats: () => mockDb.getEmailStats(),
+
+  getEmailLogs: (params?: any) => mockDb.getEmailLogs(params),
+
+  // SMS
+  getSmsSettings: () => mockDb.getSmsSettings(),
+
+  updateSmsSettings: (config: any, user = "مدیر ارشد") => mockDb.updateSmsSettings(config),
 
   sendTestSms: (data: { to: string; bodyId: number; args?: (string | number)[] }) =>
-    request<any>("/sms/test", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mockDb.sendTestSms(data),
 
   sendCouponSms: (data: { phone: string; code: string; discountPercent: number; customerName?: string }) =>
-    request<any>("/sms/send-coupon", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    mockDb.sendCouponSms(data),
 
-  getSmsStats: () => request<any>("/sms/stats"),
+  getSmsStats: () => mockDb.getSmsStats(),
 
-  getSmsLogs: (params?: {
-    status?: string;
-    template?: string;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  }) => {
-    const q = new URLSearchParams();
-    if (params?.status && params.status !== "all") q.set("status", params.status);
-    if (params?.template && params.template !== "all") q.set("template", params.template);
-    if (params?.search) q.set("search", params.search);
-    if (params?.limit) q.set("limit", String(params.limit));
-    if (params?.offset) q.set("offset", String(params.offset));
-    const qs = q.toString();
-    return request<{ items: any[]; total: number; limit: number; offset: number }>(`/sms/logs${qs ? `?${qs}` : ""}`);
-  },
+  getSmsLogs: (params?: any) => mockDb.getSmsLogs(params),
 
-  sendOrderReceiptEmail: (orderData: any) =>
-    request<any>("/email/send-order-receipt", {
-      method: "POST",
-      body: JSON.stringify(orderData),
-    }),
+  sendOrderReceiptEmail: async (orderData: any): Promise<{ success: boolean; message?: string; error?: string }> => ({
+    success: true,
+    message: "رسید سفارش با موفقیت به ایمیل مشتری ارسال شد.",
+  }),
 
-  sendCustomEmail: (data: {
-    recipientEmail: string;
-    recipientName?: string;
-    subject: string;
-    message: string;
-    badge?: string;
-    buttonText?: string;
-    buttonUrl?: string;
-    adminSender?: string;
-  }) =>
-    request<any>("/email/send-custom", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  sendCustomEmail: async (data: any): Promise<{ success: boolean; message?: string; error?: string }> => ({
+    success: true,
+    message: "ایمیل سفارشی با موفقیت به گیرنده ارسال گردید.",
+  }),
 
-  getUserProfile: (id: string) => request<any>(`/users/${id}`),
+  getUserProfile: (id: string) => mockDb.getUserById(id),
 
-  updateUserProfile: (id: string, data: any) =>
-    request<any>(`/users/${id}/profile`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
+  updateUserProfile: (id: string, data: any) => mockDb.updateUserProfile(id, data),
 
-  topUpWallet: (id: string, amountToman: number) =>
-    request<any>(`/users/${id}/topup-wallet`, {
-      method: "POST",
-      body: JSON.stringify({ amountToman }),
-    }),
+  topUpWallet: (id: string, amountToman: number) => mockDb.topUpWallet(id, amountToman),
 
-  convertPoints: (id: string, points: number) =>
-    request<any>(`/users/${id}/convert-points`, {
-      method: "POST",
-      body: JSON.stringify({ points }),
-    }),
+  convertPoints: (id: string, points: number) => mockDb.convertPoints(id, points),
 
-  // Withdrawals & Settlement
+  // Withdrawals
   requestWithdrawal: (
     userId: string,
     data: {
@@ -561,316 +381,99 @@ export const api = {
       accountOwnerName?: string;
       userNote?: string;
     }
-  ) =>
-    request<any>(`/users/${userId}/withdrawals`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  ) => mockDb.requestWithdrawal(userId, data),
 
-  getUserWithdrawals: (userId: string) =>
-    request<any[]>(`/users/${userId}/withdrawals`),
-
-  getAdminWithdrawals: (params?: {
-    status?: string;
-    userId?: string;
-    search?: string;
-    limit?: number;
-    offset?: number;
-    role?: string;
-  }) => {
-    const q = new URLSearchParams();
-    if (params?.status && params.status !== "all") q.set("status", params.status);
-    if (params?.userId) q.set("userId", params.userId);
-    if (params?.search) q.set("search", params.search);
-    if (params?.limit) q.set("limit", String(params.limit));
-    if (params?.offset) q.set("offset", String(params.offset));
-    if (params?.role) q.set("role", params.role);
-    const qs = q.toString();
-    return request<{ requests: any[]; totalCount: number }>(`/users/admin/withdrawals-list${qs ? `?${qs}` : ""}`);
+  getUserWithdrawals: async (userId: string) => {
+    const res = await mockDb.getWithdrawals({ userId });
+    return res.requests;
   },
 
-  processWithdrawal: (
-    id: string,
-    data: {
-      action: "APPROVE" | "REJECT";
-      adminNote?: string;
-      bankTrackingCode?: string;
-      bankReceiptUrl?: string;
-      adminName?: string;
-      adminId?: string;
-      role?: string;
+  getAdminWithdrawals: (params?: any) => mockDb.getWithdrawals(params),
+
+  processWithdrawal: (id: string, data: any) => mockDb.processWithdrawal(id, data),
+
+  // Passwords
+  sendEmailOtp: async (phone: string) => ({
+    success: true,
+    message: "کد تأیید به ایمیل حساب کاربری شما ارسال شد.",
+    maskedEmail: "c***r@gmail.com",
+    code: "11111",
+  }),
+
+  loginWithPassword: async (phone: string, password: string, referralCode?: string) => {
+    const db = getMockDb();
+    const user = db.users.find((u) => u.phone === phone);
+    if (!user) {
+      throw new Error("کاربری با این شماره یافت نشد.");
     }
-  ) =>
-    request<any>(`/users/admin/withdrawals/${id}/process`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    const token = `mock-token-${user.id}-${Date.now()}`;
+    return { accessToken: token, user };
+  },
 
-  // Auth & Passwords
-  sendEmailOtp: (phone: string) =>
-    request<{ success: boolean; message: string; maskedEmail: string; code?: string }>("/auth/send-email-otp", {
-      method: "POST",
-      body: JSON.stringify({ phone }),
-    }),
-
-  loginWithPassword: (phone: string, password: string, referralCode?: string) =>
-    request<{ accessToken: string; user: any }>("/auth/login-password", {
-      method: "POST",
-      body: JSON.stringify({ phone, password, referralCode }),
-    }),
-
-  updatePassword: (newPassword: string, currentPassword?: string) =>
-    request<{ success: boolean; message: string }>("/auth/update-password", {
-      method: "POST",
-      body: JSON.stringify({ newPassword, currentPassword }),
-    }),
+  updatePassword: async (newPassword: string, currentPassword?: string) => ({
+    success: true,
+    message: "رمز عبور با موفقیت به‌روزرسانی شد.",
+  }),
 
   // Orders & Refunds
-  createBackendOrder: (dto: any) =>
-    request<any>("/orders", {
-      method: "POST",
-      body: JSON.stringify(dto),
-    }),
+  createBackendOrder: (dto: any) => mockDb.createOrder(dto),
 
-  getBackendOrders: (params?: { status?: string; customerEmail?: string; limit?: number }) => {
-    const q = new URLSearchParams();
-    if (params?.status) q.set("status", params.status);
-    if (params?.customerEmail) q.set("customerEmail", params.customerEmail);
-    if (params?.limit) q.set("limit", String(params.limit));
-    const qs = q.toString();
-    return request<{ orders: any[]; totalCount: number }>(`/orders${qs ? `?${qs}` : ""}`);
-  },
+  getBackendOrders: (params?: { status?: string; customerEmail?: string; limit?: number }) =>
+    mockDb.getOrders(params),
 
-  getOrderById: (id: string) => request<any>(`/orders/${id}`),
+  getOrderById: (id: string) => mockDb.getOrderById(id),
 
-  getRefundRequests: (role = "SUPER_ADMIN") =>
-    request<any[]>(`/orders/refund-requests?role=${role}`),
+  getRefundRequests: (role = "SUPER_ADMIN") => mockDb.getRefundRequests(),
 
-  processRefund: (dto: any, role = "SUPER_ADMIN") =>
-    request<any>("/orders/process-refund", {
-      method: "POST",
-      body: JSON.stringify({ ...dto, role }),
-    }),
+  processRefund: (dto: any, role = "SUPER_ADMIN") => mockDb.processRefund(dto),
 
-  rejectRefund: (
-    orderId: string,
-    data: {
-      rejectionReason: string;
-      newStatus?: string;
-      adminId?: string;
-      adminName?: string;
-    },
-    role = "SUPER_ADMIN"
-  ) =>
-    request<any>(`/orders/${orderId}/reject-refund`, {
-      method: "POST",
-      body: JSON.stringify({ ...data, role }),
-    }),
+  rejectRefund: (orderId: string, data: any, role = "SUPER_ADMIN") =>
+    mockDb.rejectRefund(orderId, data),
 
   requestRefund: (orderId: string, refundReason: string, refundCardNumber?: string, refundIban?: string) =>
-    request<any>(`/orders/${orderId}/request-refund`, {
-      method: "POST",
-      body: JSON.stringify({ refundReason, refundCardNumber, refundIban }),
-    }),
+    mockDb.requestRefund(orderId, refundReason, refundCardNumber, refundIban),
 
-  updateOrderStatus: (
-    orderId: string,
-    dataOrStatus:
-      | string
-      | {
-          status: string;
-          adminName?: string;
-          adminId?: string;
-          adminPhone?: string;
-          deliveredAccounts?: string[];
-          role?: string;
-          notes?: string;
-        },
-    adminName = "مدیر سیستم",
-    role = "SUPER_ADMIN"
-  ) => {
-    let body: any;
-    if (typeof dataOrStatus === "string") {
-      body = { status: dataOrStatus, adminName, role };
-    } else {
-      body = {
-        status: dataOrStatus.status,
-        adminName: dataOrStatus.adminName || adminName,
-        adminId: dataOrStatus.adminId,
-        adminPhone: dataOrStatus.adminPhone,
-        deliveredAccounts: dataOrStatus.deliveredAccounts,
-        notes: dataOrStatus.notes,
-        role: dataOrStatus.role || role,
-      };
-    }
-    return request<any>(`/orders/${orderId}/status`, {
-      method: "PUT",
-      body: JSON.stringify(body),
-    });
-  },
+  updateOrderStatus: (orderId: string, dataOrStatus: any, adminName = "مدیر سیستم", role = "SUPER_ADMIN") =>
+    mockDb.updateOrderStatus(orderId, dataOrStatus, adminName),
 
-  reindexSearch: () =>
-    request<any>("/search/reindex", {
-      method: "POST",
-    }),
+  reindexSearch: async () => ({ success: true, count: 9 }),
 
-  // CartBeCart Card-to-Card Payment API
-  // Coupons API
-  getCoupons: () => request<any[]>("/coupons"),
-  getCouponById: (id: string) => request<any>(`/coupons/${id}`),
-  createCoupon: (data: {
-    code: string;
-    discountPercent: number;
-    maxDiscountToman?: number;
-    minOrderToman?: number;
-    expiresAt?: string;
-    maxUsage?: number;
-    isActive?: boolean;
-    allowedUserIds?: any;
-  }) =>
-    request<any>("/coupons", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-  updateCoupon: (id: string, data: Partial<{
-    discountPercent: number;
-    maxDiscountToman?: number;
-    minOrderToman?: number;
-    expiresAt?: string;
-    maxUsage?: number;
-    isActive?: boolean;
-    allowedUserIds?: any;
-  }>) =>
-    request<any>(`/coupons/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
-  deleteCoupon: (id: string) =>
-    request<any>(`/coupons/${id}`, {
-      method: "DELETE",
-    }),
-  // Validate coupon code
-  validateCoupon: (code: string, userId?: string) =>
-    request<any>("/coupons/validate", {
-      method: "POST",
-      body: JSON.stringify({ code, userId }),
-    }),
-  initiateCardPayment: (data: {
-    amountToman: number;
-    paymentType: "ORDER" | "WALLET_TOPUP";
-    orderNumber?: string;
-    orderId?: string;
-    userId?: string;
-    customerName?: string;
-    customerPhone?: string;
-    callbackUrl?: string;
-  }) =>
-    request<any>("/cartbecart/initiate", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  // Coupons
+  getCoupons: () => mockDb.getCoupons(),
 
-  checkCardPaymentStatus: (paymentToken: string) =>
-    request<any>(`/cartbecart/status/${paymentToken}`, {
-      method: "GET",
-    }),
+  getCouponById: (id: string) => mockDb.getCouponById(id),
 
-  submitManualReceipt: (data: {
-    paymentToken?: string;
-    amountToman: number;
-    paymentType?: "ORDER" | "WALLET_TOPUP";
-    orderNumber?: string;
-    orderId?: string;
-    userId?: string;
-    trackingCode: string;
-    userCardNumber?: string;
-    receiptUrl?: string;
-    depositTime?: string;
-    userNote?: string;
-  }) =>
-    request<any>("/cartbecart/submit-receipt", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  createCoupon: (data: any) => mockDb.createCoupon(data),
+
+  updateCoupon: (id: string, data: any) => mockDb.updateCoupon(id, data),
+
+  deleteCoupon: (id: string) => mockDb.deleteCoupon(id),
+
+  validateCoupon: (code: string, userId?: string) => mockDb.validateCoupon(code, userId),
+
+  // Card Payments (CartBeCart)
+  initiateCardPayment: (data: any) => mockDb.initiateCardPayment(data),
+
+  checkCardPaymentStatus: (paymentToken: string) => mockDb.checkCardPaymentStatus(paymentToken),
+
+  submitManualReceipt: (data: any) => mockDb.submitManualReceipt(data),
 
   simulateCardPaymentSuccess: (paymentToken: string) =>
-    request<any>(`/cartbecart/simulate-success/${paymentToken}`, {
-      method: "POST",
-    }),
+    mockDb.adminApproveCardPayment(paymentToken, { adminNote: "شبیه‌سازی تایید مستقیم پرداخت" }),
 
-  getUserCardPayments: (
-    userId: string,
-    params?: {
-      status?: string;
-      type?: string;
-      page?: number;
-      limit?: number;
-    }
-  ) => {
-    const query = new URLSearchParams();
-    if (params?.status) query.append("status", params.status);
-    if (params?.type) query.append("type", params.type);
-    if (params?.page) query.append("page", String(params.page));
-    if (params?.limit) query.append("limit", String(params.limit));
-    return request<any>(`/cartbecart/user/${userId}?${query.toString()}`);
-  },
+  getUserCardPayments: (userId: string, params?: any) =>
+    mockDb.getCardPayments({ userId, ...params }),
 
-  getAdminCardPayments: (params?: {
-    status?: string;
-    type?: string;
-    userId?: string;
-    search?: string;
-    page?: number;
-    limit?: number;
-    role?: string;
-  }) => {
-    const query = new URLSearchParams();
-    if (params?.status) query.append("status", params.status);
-    if (params?.type) query.append("type", params.type);
-    if (params?.userId) query.append("userId", params.userId);
-    if (params?.search) query.append("search", params.search);
-    if (params?.page) query.append("page", String(params.page));
-    if (params?.limit) query.append("limit", String(params.limit));
-    if (params?.role) query.append("role", params.role);
-    return request<any>(`/cartbecart/admin/payments?${query.toString()}`);
-  },
+  getAdminCardPayments: (params?: any) => mockDb.getCardPayments(params),
 
-  adminApproveCardPayment: (
-    id: string,
-    data: { adminNote?: string },
-    adminUser?: { id?: string; name?: string; phone?: string; role?: string }
-  ) =>
-    request<any>(`/cartbecart/admin/approve/${id}`, {
-      method: "POST",
-      body: JSON.stringify({ ...data, adminUser }),
-    }),
+  adminApproveCardPayment: (id: string, data: { adminNote?: string }, adminUser?: any) =>
+    mockDb.adminApproveCardPayment(id, data, adminUser),
 
-  adminRejectCardPayment: (
-    id: string,
-    data: { reason: string },
-    adminUser?: { id?: string; name?: string; phone?: string; role?: string }
-  ) =>
-    request<any>(`/cartbecart/admin/reject/${id}`, {
-      method: "POST",
-      body: JSON.stringify({ ...data, adminUser }),
-    }),
+  adminRejectCardPayment: (id: string, data: { reason: string }, adminUser?: any) =>
+    mockDb.adminRejectCardPayment(id, data, adminUser),
 
-  getCartBeCartSettings: (role: string = "SUPER_ADMIN") =>
-    request<any>(`/cartbecart/admin/settings?role=${role}`),
+  getCartBeCartSettings: (role = "SUPER_ADMIN") => mockDb.getCartBeCartSettings(),
 
-  updateCartBeCartSettings: (
-    data: {
-      apiKey?: string;
-      fallbackCardNumber?: string;
-      fallbackCardOwner?: string;
-      fallbackBankName?: string;
-      enabled?: boolean;
-    },
-    role: string = "SUPER_ADMIN"
-  ) =>
-    request<any>("/cartbecart/admin/settings", {
-      method: "PUT",
-      body: JSON.stringify({ ...data, role }),
-    }),
+  updateCartBeCartSettings: (data: any, role = "SUPER_ADMIN") =>
+    mockDb.updateCartBeCartSettings(data),
 };
-

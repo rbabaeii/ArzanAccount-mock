@@ -70,6 +70,7 @@ export default function TimePickerInput({
       setHourStr(pad(hour));
       setMinuteStr(pad(minute));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   // Keep strings synced when numeric hours/minutes change via steppers/presets

@@ -63,7 +63,7 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const { settings, isLoadingSync, syncWithIrMarket, orders } = useStore();
-  const { user, isAuthenticated, isAdmin, isLoading: isAuthLoading, logout, openLoginModal } = useAuth();
+  const { user, isAuthenticated, isAdmin, isLoading: isAuthLoading, logout, openLoginModal, switchAdminRole } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [syncToast, setSyncToast] = useState(false);
@@ -394,7 +394,18 @@ export default function AdminLayout({
           {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
         <span className="font-black text-sm">کنترل سنتر ارزان اکانت</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
+          <select
+            value={user?.role || "SUPER_ADMIN"}
+            onChange={(e) => switchAdminRole(e.target.value as UserRole)}
+            className="bg-white/10 text-white text-[10px] font-bold py-1 px-1.5 rounded-lg outline-none cursor-pointer max-w-[110px] truncate"
+            title="سوییچ نقش‌های مدیر (RBAC)"
+          >
+            <option value="SUPER_ADMIN" className="bg-slate-900 text-white">مدیر ارشد</option>
+            <option value="CATALOG_MANAGER" className="bg-slate-900 text-white">مدیر انبار</option>
+            <option value="FINANCE_ADMIN" className="bg-slate-900 text-white">مدیر مالی</option>
+            <option value="SUPPORT_ADMIN" className="bg-slate-900 text-white">مدیر پشتیبانی</option>
+          </select>
           <ThemeToggle />
           <NextLink href="/" className="p-1.5 hover:bg-white/10 dark:hover:bg-slate-800 rounded-lg" title="فروشگاه">
             <ShoppingBag className="w-5 h-5" />
@@ -603,6 +614,30 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Quick RBAC Role Switcher */}
+            <div className="flex items-center gap-1.5 bg-teal-50/80 dark:bg-slate-800 border border-teal-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 shadow-2xs">
+              <Shield className="w-3.5 h-3.5 text-brand-primary dark:text-teal-400 shrink-0" />
+              <select
+                value={user?.role || "SUPER_ADMIN"}
+                onChange={(e) => switchAdminRole(e.target.value as UserRole)}
+                className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 outline-none cursor-pointer pr-1"
+                title="سوییچ نقش‌های مدیر جهت تست دسترسی‌های RBAC"
+              >
+                <option value="SUPER_ADMIN" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">
+                  مدیر ارشد (09181111111)
+                </option>
+                <option value="CATALOG_MANAGER" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">
+                  مدیر کاتالوگ و انبار (09130000002)
+                </option>
+                <option value="FINANCE_ADMIN" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">
+                  مدیر مالی و عودت وجه (09140000003)
+                </option>
+                <option value="SUPPORT_ADMIN" className="bg-white dark:bg-slate-900 text-slate-800 dark:text-white">
+                  مدیر پشتیبانی و سفارشات (09120000001)
+                </option>
+              </select>
+            </div>
+
             {/* Theme Toggle Button */}
             <ThemeToggle />
 

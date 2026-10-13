@@ -102,6 +102,23 @@ export default function CardPaymentPage() {
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSuccessMsg, setManualSuccessMsg] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  const handleSimulateInstantPayment = async () => {
+    if (!paymentData?.paymentToken) return;
+    setIsSimulating(true);
+    try {
+      await api.simulateCardPaymentSuccess(paymentData.paymentToken);
+      const freshOrder = await api.getOrderById(orderNumber);
+      if (freshOrder) setOrder(freshOrder);
+      setPaymentStatus("PAID");
+      setSuccessInfo({ status: "PAID", isCompleted: true });
+    } catch (err: any) {
+      console.error("Simulation error:", err);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -128,7 +145,7 @@ export default function CardPaymentPage() {
         setOrder(data);
 
         // If order is already completed or paid
-        if (data.status === "completed" || data.status === "delivered") {
+        if ((data.status as string) === "completed" || data.status === "delivered") {
           setPaymentStatus("PAID");
           setSuccessInfo(data);
         }
@@ -865,6 +882,42 @@ export default function CardPaymentPage() {
                         </div>
 
                         <RefreshCw className="w-4 h-4 animate-spin text-teal-600 dark:text-teal-400 shrink-0" />
+                      </div>
+
+                      {/* Mock Instant Payment Approval Simulator (Testing Mode) */}
+                      <div className="p-4 rounded-2xl bg-amber-500/15 dark:bg-amber-950/40 border-2 border-dashed border-amber-400/80 dark:border-amber-600/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xs">
+                        <div className="flex items-center gap-2.5 text-right w-full sm:w-auto">
+                          <div className="w-9 h-9 rounded-xl bg-amber-500/25 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
+                            <Sparkles className="w-4 h-4 animate-pulse" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-amber-950 dark:text-amber-200 block text-xs">
+                              تست و شبیه‌سازی تایید آنی پرداخت (حالت ماک)
+                            </span>
+                            <span className="text-[11px] text-amber-800/90 dark:text-amber-300/80">
+                              شبیه‌سازی دریافت پیامک بانکی و تحویل آنی لایسنس
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isSimulating}
+                          onClick={handleSimulateInstantPayment}
+                          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 active:scale-95 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md hover:scale-105 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                        >
+                          {isSimulating ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>در حال شبیه‌سازی...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                              <span>شبیه‌سازی تایید آنی پرداخت ⚡</span>
+                            </>
+                          )}
+                        </button>
                       </div>
 
                       {/* Manual Fallback Quick Link */}

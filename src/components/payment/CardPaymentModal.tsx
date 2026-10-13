@@ -21,6 +21,7 @@ import {
   HelpCircle,
   ArrowLeft,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import JalaliDatePickerInput from "@/components/ui/JalaliDatePickerInput";
 import ReceiptUploader from "@/components/payment/ReceiptUploader";
@@ -83,6 +84,24 @@ export default function CardPaymentModal({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+
+  const handleSimulateInstantPayment = async () => {
+    if (!paymentData?.paymentToken) return;
+    setIsSimulating(true);
+    try {
+      const res = await api.simulateCardPaymentSuccess(paymentData.paymentToken);
+      setSuccessMessage("پرداخت شما با موفقیت به صورت آنی تأیید گردید!");
+      setStep("SUCCESS");
+      setTimeout(() => {
+        onSuccess(res?.payment || res);
+      }, 1500);
+    } catch (err: any) {
+      console.error("Simulation error in modal:", err);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
 
   // Copied state
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -517,6 +536,34 @@ export default function CardPaymentModal({
                 </div>
               </div>
 
+              {/* Mock Instant Payment Approval Simulator */}
+              <div className="p-3.5 rounded-2xl bg-amber-500/15 dark:bg-amber-950/40 border border-amber-400/80 dark:border-amber-600/70 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
+                  <span className="font-bold text-amber-950 dark:text-amber-200 text-[11px]">
+                    آزمایش تایید فوری واریز (حالت ماک):
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isSimulating}
+                  onClick={handleSimulateInstantPayment}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-[11px] flex items-center gap-1 shadow-sm active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+                >
+                  {isSimulating ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>در حال تایید...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3 fill-slate-950" />
+                      <span>تایید آنی ⚡</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
               {/* Additional Actions & Fallback Switch */}
               <div className="space-y-2 pt-2">
                 {paymentData.paymentUrl && (
@@ -537,7 +584,8 @@ export default function CardPaymentModal({
                   className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-teal-950/40 text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-transparent hover:border-teal-300 dark:hover:border-teal-700"
                 >
                   <FileText className="w-4 h-4" />
-                  </button>
+                  <span>ثبت دستی اطلاعات فیش واریزی</span>
+                </button>
               </div>
             </>
           )}

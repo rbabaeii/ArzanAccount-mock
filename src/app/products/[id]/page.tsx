@@ -60,11 +60,12 @@ export default function ProductDetailPage() {
           let safeTags: string[] = [];
           if (Array.isArray(liveData.tags)) {
             safeTags = liveData.tags;
-          } else if (typeof liveData.tags === "string") {
+          } else if (typeof (liveData.tags as any) === "string") {
             try {
-              safeTags = liveData.tags.startsWith("[")
-                ? JSON.parse(liveData.tags)
-                : liveData.tags.split(",").map((t: string) => t.trim()).filter(Boolean);
+              const rawStr = liveData.tags as unknown as string;
+              safeTags = rawStr.startsWith("[")
+                ? JSON.parse(rawStr)
+                : rawStr.split(",").map((t: string) => t.trim()).filter(Boolean);
             } catch {
               safeTags = [];
             }

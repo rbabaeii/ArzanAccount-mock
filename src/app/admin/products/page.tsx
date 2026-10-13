@@ -32,6 +32,7 @@ import {
   Key,
   Zap,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import ImageUploader from "@/components/ui/ImageUploader";
@@ -63,6 +64,7 @@ export default function AdminProductsPage() {
     createProduct,
     toggleProductActive,
     updateProduct,
+    deleteProduct,
     calculateProductPrice,
   } = useStore();
 
@@ -321,39 +323,90 @@ export default function AdminProductsPage() {
 
     setIsSaving(true);
     try {
-      await updateProduct(editingProduct.id, {
-        customTitle: editTitle,
-        categoryId: editCategoryId,
-        description: editDescription.replace(/<[^>]*>?/gm, '').trim(),
-        persianDescription: editPersianDescription.replace(/<[^>]*>?/gm, '').trim(),
-        badge: editBadge.trim(),
-        costPriceUsd: editCostPriceUsd,
-        retailPriceUsd: editRetailPriceUsd,
-        customMarginPercent: editMargin,
-        salePriceToman: editSalePriceToman && Number(editSalePriceToman) > 0 ? Number(editSalePriceToman) : null,
-        discountPercent: editDiscountPercent && Number(editDiscountPercent) > 0 ? Number(editDiscountPercent) : null,
-        image: editImage,
-        requiresEmail: editRequiresEmail,
-        requiresPassword: editRequiresPassword,
-        requiresLink: editRequiresLink,
-        requiresComments: editRequiresComments,
-        pricingUnit: editPricingUnit,
-        minQty: editMinQty,
-        maxQty: editMaxQty,
-        stockCount: editStockCount,
-        inStock: editInStock,
-        isActive: editIsActive,
-        isFeatured: editIsFeatured,
-        isFlashDeal: editIsFlashDeal,
-      } as any);
+      if (isCreatingProduct) {
+        await createProduct({
+          name: editTitle,
+          customTitle: editTitle,
+          categoryId: editCategoryId,
+          description: editDescription.replace(/<[^>]*>?/gm, '').trim(),
+          persianDescription: editPersianDescription.replace(/<[^>]*>?/gm, '').trim(),
+          badge: editBadge.trim(),
+          costPriceUsd: editCostPriceUsd,
+          retailPriceUsd: editRetailPriceUsd,
+          customMarginPercent: editMargin,
+          salePriceToman: editSalePriceToman && Number(editSalePriceToman) > 0 ? Number(editSalePriceToman) : null,
+          discountPercent: editDiscountPercent && Number(editDiscountPercent) > 0 ? Number(editDiscountPercent) : null,
+          image: editImage,
+          requiresEmail: editRequiresEmail,
+          requiresPassword: editRequiresPassword,
+          requiresLink: editRequiresLink,
+          requiresComments: editRequiresComments,
+          pricingUnit: editPricingUnit,
+          minQty: editMinQty,
+          maxQty: editMaxQty,
+          stockCount: editStockCount,
+          inStock: editInStock,
+          isActive: editIsActive,
+          isFeatured: editIsFeatured,
+          isFlashDeal: editIsFlashDeal,
+          tags: editTags,
+        } as any);
+        setToastMessage("محصول جدید با موفقیت ایجاد و به کاتالوگ اضافه گردید.");
+      } else {
+        await updateProduct(editingProduct.id, {
+          customTitle: editTitle,
+          categoryId: editCategoryId,
+          description: editDescription.replace(/<[^>]*>?/gm, '').trim(),
+          persianDescription: editPersianDescription.replace(/<[^>]*>?/gm, '').trim(),
+          badge: editBadge.trim(),
+          costPriceUsd: editCostPriceUsd,
+          retailPriceUsd: editRetailPriceUsd,
+          customMarginPercent: editMargin,
+          salePriceToman: editSalePriceToman && Number(editSalePriceToman) > 0 ? Number(editSalePriceToman) : null,
+          discountPercent: editDiscountPercent && Number(editDiscountPercent) > 0 ? Number(editDiscountPercent) : null,
+          image: editImage,
+          requiresEmail: editRequiresEmail,
+          requiresPassword: editRequiresPassword,
+          requiresLink: editRequiresLink,
+          requiresComments: editRequiresComments,
+          pricingUnit: editPricingUnit,
+          minQty: editMinQty,
+          maxQty: editMaxQty,
+          stockCount: editStockCount,
+          inStock: editInStock,
+          isActive: editIsActive,
+          isFeatured: editIsFeatured,
+          isFlashDeal: editIsFlashDeal,
+          tags: editTags,
+        } as any);
+        setToastMessage("تمامی مشخصات محصول با موفقیت ذخیره و در سایت اعمال گردید.");
+      }
 
-      setToastMessage("تمامی مشخصات محصول با موفقیت ذخیره و در سایت اعمال گردید.");
       setTimeout(() => setToastMessage(null), 3500);
       setEditingProduct(null);
+      setIsCreatingProduct(false);
     } catch (err) {
       console.error(err);
+      setToastMessage("خطا در پردازش اطلاعات محصول.");
+      setTimeout(() => setToastMessage(null), 3500);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string, title: string) => {
+    if (!window.confirm(`آیا از حذف کامل محصول «${title}» از فروشگاه اطمینان دارید؟`)) return;
+    try {
+      await deleteProduct(id);
+      setToastMessage(`محصول «${title}» با موفقیت حذف گردید.`);
+      setTimeout(() => setToastMessage(null), 3500);
+      if (editingProduct?.id === id) {
+        setEditingProduct(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setToastMessage("خطا در حذف محصول.");
+      setTimeout(() => setToastMessage(null), 3500);
     }
   };
 
@@ -908,6 +961,13 @@ export default function AdminProductsPage() {
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                           <span>ویرایش</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(product.id, product.customTitle || product.name)}
+                          className="p-1.5 text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all duration-200 hover:scale-110 active:scale-95"
+                          title="حذف محصول"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                         {product.isActive && (
                           <Link
@@ -1764,14 +1824,27 @@ export default function AdminProductsPage() {
               )}
 
               {/* Modal Actions Footer */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-admin-borderLight dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="px-4 py-2.5 rounded-xl text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800 font-semibold transition-colors"
-                >
-                  انصراف
-                </button>
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-admin-borderLight dark:border-slate-800">
+                {!isCreatingProduct && editingProduct?.id ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProduct(editingProduct.id, editTitle || editingProduct.name)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-xs font-bold transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>حذف محصول</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct(null)}
+                    className="px-4 py-2.5 rounded-xl text-neutral-600 dark:text-slate-400 hover:bg-neutral-100 dark:hover:bg-slate-800 font-semibold transition-colors"
+                  >
+                    انصراف
+                  </button>
                 <button
                   type="submit"
                   disabled={isSaving}
@@ -1780,6 +1853,7 @@ export default function AdminProductsPage() {
                   <Save className="w-4 h-4" />
                   <span>{isSaving ? "در حال ذخیره..." : isCreatingProduct ? "ثبت و ایجاد محصول جدید" : "ذخیره تغییرات محصول"}</span>
                 </button>
+                </div>
               </div>
             </form>
           </div>

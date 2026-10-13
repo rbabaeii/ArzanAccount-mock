@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useStore } from "@/context/StoreContext";
 import { api } from "@/lib/api";
 import { Product } from "@/types";
@@ -104,7 +104,7 @@ export default function AdminTagsPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await api.getAllTags();
@@ -133,11 +133,11 @@ export default function AdminTagsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [products]);
 
   useEffect(() => {
     fetchTags();
-  }, [products]);
+  }, [fetchTags]);
 
   const handleReindex = async () => {
     setIsReindexing(true);

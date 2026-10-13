@@ -84,6 +84,7 @@ export interface AuthContextType {
     userNote?: string;
   }) => Promise<{ success: boolean; message: string }>;
   convertClubPoints: (points: number) => Promise<{ success: boolean; coupon?: any }>;
+  switchAdminRole: (role: UserRole) => Promise<void>;
   logout: () => void;
   hasPermission: (section: "catalog" | "finance" | "orders" | "users" | "settings") => boolean;
 }
@@ -244,6 +245,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { success: false, message: err.message || "کد تایید نامعتبر است." };
     }
+  };
+
+  const switchAdminRole = async (targetRole: UserRole) => {
+    const ROLE_PHONES: Record<UserRole, string> = {
+      SUPER_ADMIN: "09181111111",
+      CATALOG_MANAGER: "09130000002",
+      FINANCE_ADMIN: "09140000003",
+      SUPPORT_ADMIN: "09120000001",
+      USER: "09180000000",
+    };
+    const phone = ROLE_PHONES[targetRole] || "09181111111";
+    await verifyOtp(phone, "11111");
   };
 
   const sendEmailOtp = async (phone: string) => {
@@ -565,6 +578,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         topUpWallet,
         requestWithdrawal,
         convertClubPoints,
+        switchAdminRole,
         logout,
         hasPermission,
       }}
