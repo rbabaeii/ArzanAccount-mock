@@ -183,7 +183,7 @@ export default function CheckoutPage() {
   const subtotalUsd = cart.reduce((acc, item) => {
     const p = calculateProductPrice(item.product);
     const qtyFactor = p.isPerThousand ? item.quantity / 1000 : item.quantity;
-    return acc + item.product.costPriceUsd * qtyFactor;
+    return acc + (item.product.costPriceUsd || 0) * qtyFactor;
   }, 0);
 
   let discountToman = 0;
@@ -308,7 +308,7 @@ export default function CheckoutPage() {
         productTitle: item.product.customTitle,
         quantity: item.quantity,
         priceToman: p.toman,
-        priceUsd: item.product.costPriceUsd,
+        priceUsd: item.product.costPriceUsd || 0,
       };
     });
 

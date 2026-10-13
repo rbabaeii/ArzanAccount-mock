@@ -87,11 +87,11 @@ interface StoreContextType {
   ) => Promise<void> | void;
   addAdminAuditLog: (log: Omit<AuditLog, "id" | "timestamp">) => void;
   getMaxAllowedPurchase: (product: Product) => number;
-  addCoupon: (coupon: Omit<Coupon, "id">) => void;
-  addCoupons: (coupons: Omit<Coupon, "id">[]) => void;
-  updateCoupon: (couponId: string, updates: Partial<Coupon>) => void;
-  toggleCoupon: (couponId: string) => void;
-  deleteCoupon: (couponId: string) => void;
+  addCoupon: (coupon: Omit<Coupon, "id">) => Promise<void> | void;
+  addCoupons: (coupons: Omit<Coupon, "id">[]) => Promise<void> | void;
+  updateCoupon: (couponId: string, updates: Partial<Coupon>) => Promise<void> | void;
+  toggleCoupon: (couponId: string) => Promise<void> | void;
+  deleteCoupon: (couponId: string) => Promise<void> | void;
   requestRefund: (orderId: string, reason: string, cardNumber?: string, sheba?: string) => Promise<{ success: boolean; message: string }>;
   processRefundOrder: (orderId: string, refundMethod: "bank_card" | "wallet", trackingCode?: string, receiptUrl?: string, adminName?: string) => void;
   rejectRefundOrder: (orderId: string, rejectionReason: string, newStatus?: Order["status"]) => void;
@@ -107,6 +107,8 @@ function mapBackendProduct(bp: any): Product {
     customTitle: bp.customTitle || bp.nameFa || bp.name,
     costPriceUsd: bp.costPriceUsd,
     retailPriceUsd: bp.retailPriceUsd ?? bp.costPriceUsd,
+    priceToman: bp.priceToman || bp.calculatedPrice?.finalToman,
+    calculatedPrice: bp.calculatedPrice,
     pricingUnit: bp.pricingUnit === "per_1000" ? "per_1000" : "unit",
     minQty: bp.minQty ?? 1,
     maxQty: bp.maxQty ?? 1,
@@ -287,7 +289,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Helper to load live data from NestJS backend
   const refreshFromBackend = useCallback(async () => {
     try {
-      const [backendSettings, backendCategories, backendProductsData, backendLogs] =
+      const [backendSettings, backendCategories, backendProductsData, backendLogs, backendCoupons] =
         await Promise.all([
           api.getSettings().catch((e) => {
             console.warn("Failed to fetch settings from backend", e);
@@ -297,7 +299,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             console.warn("Failed to fetch categories from backend", e);
             return null;
           }),
-          api.getProducts({ limit: 1200 }).catch((e) => {
+          api.getProducts({ limit: 5000 }).catch((e) => {
             console.warn("Failed to fetch products from backend", e);
             return null;
           }),
@@ -305,6 +307,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             console.warn("Failed to fetch logs from backend", e);
             return null;
           }),
+          api.getCoupons().catch(() => null),
         ]);
 
       if (backendSettings) {
@@ -392,6 +395,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setOrders(mappedOrders);
         try {
           localStorage.setItem("arzan_orders_v2", JSON.stringify(mappedOrders));
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+
+      if (backendCoupons && Array.isArray(backendCoupons)) {
+        const mappedCoupons: Coupon[] = backendCoupons.map((c: any) => {
+          let allowedUsers: any[] = [];
+          if (c.allowedUserIds) {
+            try {
+              allowedUsers = typeof c.allowedUserIds === 'string' ? JSON.parse(c.allowedUserIds) : c.allowedUserIds;
+            } catch {
+              allowedUsers = [c.allowedUserIds];
+            }
+          }
+          return {
+            id: c.id,
+            code: c.code,
+            discountPercent: c.discountPercent,
+            maxDiscountToman: c.maxDiscountToman || 0,
+            minOrderToman: c.minOrderToman || 0,
+            expiresAt: c.expiresAt || "",
+            usageCount: c.usageCount || 0,
+            maxUsage: c.maxUsage || 0,
+            isActive: c.isActive !== false,
+            targetType: allowedUsers.length > 0 ? ("USER" as const) : ("ALL" as const),
+            targetUserIds: allowedUsers.map((u: any) => (typeof u === 'string' ? u : u.id)).filter(Boolean),
+            targetUsers: allowedUsers.filter((u: any) => typeof u === 'object'),
+          };
+        });
+        setCoupons(mappedCoupons);
+        try {
+          localStorage.setItem("arzan_coupons_v2", JSON.stringify(mappedCoupons));
         } catch (e) {
           console.warn(e);
         }
@@ -746,6 +782,57 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // publicRetailToman = (retailPriceUsd * usdToRialRate) / 10
   // finalToman = margin active ? cost * (1 + margin) : publicRetail
   const calculateProductPrice = (product: Product): CalculatedPrice => {
+    // If backend provided pre-calculated price and costPriceUsd is omitted (public customer mode)
+    const backendFinalToman = (product as any).priceToman || (product as any).calculatedPrice?.finalToman;
+    if (backendFinalToman && (!product.costPriceUsd || product.costPriceUsd <= 0)) {
+      const finalToman = Number(backendFinalToman);
+      const calculatedRegularToman = finalToman;
+      const hasSalePrice = Boolean(
+        product.salePriceToman &&
+        product.salePriceToman > 0 &&
+        product.salePriceToman < calculatedRegularToman
+      );
+      const hasSalePercent = Boolean(
+        product.discountPercent &&
+        product.discountPercent > 0 &&
+        product.discountPercent < 100
+      );
+      const hasSale = hasSalePrice || hasSalePercent;
+
+      let actualFinalToman = finalToman;
+      if (hasSalePrice) {
+        actualFinalToman = product.salePriceToman!;
+      } else if (hasSalePercent) {
+        actualFinalToman = Math.round(calculatedRegularToman * (1 - product.discountPercent! / 100));
+      }
+
+      const discountPercent = hasSalePercent
+        ? Math.round(product.discountPercent!)
+        : hasSalePrice
+        ? Math.round(((calculatedRegularToman - actualFinalToman) / calculatedRegularToman) * 100)
+        : (product.discountPercent || 0);
+
+      return {
+        rial: actualFinalToman * 10,
+        toman: actualFinalToman,
+        formattedToman: formatPrice(actualFinalToman),
+        usdPrice: 0,
+        costToman: 0,
+        formattedCostToman: "۰",
+        retailPriceUsd: 0,
+        publicRetailToman: actualFinalToman,
+        formattedPublicRetailToman: formatPrice(actualFinalToman),
+        profitToman: 0,
+        discountPercent,
+        marginPercent: 0,
+        isCustomMarginActive: false,
+        isPerThousand: product.pricingUnit === "per_1000",
+        isOnSale: hasSale,
+        originalToman: calculatedRegularToman,
+        formattedOriginalToman: formatPrice(calculatedRegularToman),
+      };
+    }
+
     const isCustomMarginActive =
       product.customMarginPercent !== null &&
       product.customMarginPercent !== undefined &&
@@ -755,10 +842,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ? product.customMarginPercent!
       : (settings.defaultMarginPercent || 0);
 
-    const costToman = Math.round((product.costPriceUsd * settings.usdToRialRate) / 10);
+    const costToman = Math.round(((product.costPriceUsd || 0) * settings.usdToRialRate) / 10);
     const retailPriceUsd = product.retailPriceUsd && product.retailPriceUsd > 0
       ? product.retailPriceUsd
-      : product.costPriceUsd;
+      : (product.costPriceUsd || 0);
     const publicRetailToman = Math.round((retailPriceUsd * settings.usdToRialRate) / 10);
 
     let finalToman = 0;
@@ -807,10 +894,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       rial: finalRial,
       toman: finalToman,
       formattedToman: formatPrice(finalToman),
-      usdPrice: product.costPriceUsd,
+      usdPrice: product.costPriceUsd || 0,
       costToman,
       formattedCostToman: formatPrice(costToman),
-      retailPriceUsd,
+      retailPriceUsd: product.retailPriceUsd || 0,
       publicRetailToman,
       formattedPublicRetailToman: formatPrice(publicRetailToman),
       profitToman,
@@ -1246,7 +1333,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setAuditLogs((prev) => [newLog, ...prev]);
   };
 
-  const addCoupon = (coupon: Omit<Coupon, "id">) => {
+  const addCoupon = async (coupon: Omit<Coupon, "id">) => {
+    try {
+      const allowed =
+        coupon.targetType === "USER"
+          ? coupon.targetUsers && coupon.targetUsers.length > 0
+            ? coupon.targetUsers
+            : coupon.targetUserIds
+          : undefined;
+
+      const res = await api.createCoupon({
+        code: coupon.code,
+        discountPercent: coupon.discountPercent,
+        maxDiscountToman: coupon.maxDiscountToman,
+        minOrderToman: coupon.minOrderToman,
+        expiresAt: coupon.expiresAt || undefined,
+        maxUsage: coupon.maxUsage,
+        isActive: coupon.isActive,
+        allowedUserIds: allowed,
+      });
+
+      if (res && res.id) {
+        const newC: Coupon = {
+          ...coupon,
+          id: res.id,
+          usageCount: res.usageCount ?? 0,
+        };
+        saveCoupons([newC, ...coupons]);
+        return;
+      }
+    } catch (err) {
+      console.warn("Could not save coupon to backend, saving locally", err);
+    }
+
     const newC: Coupon = {
       ...coupon,
       id: `coup-${Date.now()}`,
@@ -1254,15 +1373,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     saveCoupons([...coupons, newC]);
   };
 
-  const addCoupons = (newCouponsList: Omit<Coupon, "id">[]) => {
-    const formatted: Coupon[] = newCouponsList.map((c, idx) => ({
-      ...c,
-      id: `coup-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-    }));
-    saveCoupons([...coupons, ...formatted]);
+  const addCoupons = async (newCouponsList: Omit<Coupon, "id">[]) => {
+    for (const c of newCouponsList) {
+      await addCoupon(c);
+    }
   };
 
-  const updateCoupon = (couponId: string, updates: Partial<Coupon>) => {
+  const updateCoupon = async (couponId: string, updates: Partial<Coupon>) => {
+    try {
+      const allowed =
+        updates.targetType === "USER"
+          ? updates.targetUsers && updates.targetUsers.length > 0
+            ? updates.targetUsers
+            : updates.targetUserIds
+          : updates.targetUserIds;
+
+      await api.updateCoupon(couponId, {
+        discountPercent: updates.discountPercent,
+        maxDiscountToman: updates.maxDiscountToman,
+        minOrderToman: updates.minOrderToman,
+        expiresAt: updates.expiresAt,
+        maxUsage: updates.maxUsage,
+        isActive: updates.isActive,
+        allowedUserIds: allowed,
+      });
+    } catch (err) {
+      console.warn("Could not update coupon on backend", err);
+    }
+
     const updated = coupons.map((c) => (c.id === couponId ? { ...c, ...updates } : c));
     saveCoupons(updated);
     if (appliedCoupon?.id === couponId) {
@@ -1270,12 +1408,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleCoupon = (couponId: string) => {
+  const toggleCoupon = async (couponId: string) => {
+    const target = coupons.find((c) => c.id === couponId);
+    if (target) {
+      try {
+        await api.updateCoupon(couponId, { isActive: !target.isActive });
+      } catch (err) {
+        console.warn("Could not toggle coupon on backend", err);
+      }
+    }
     const updated = coupons.map((c) => (c.id === couponId ? { ...c, isActive: !c.isActive } : c));
     saveCoupons(updated);
   };
 
-  const deleteCoupon = (couponId: string) => {
+  const deleteCoupon = async (couponId: string) => {
+    try {
+      await api.deleteCoupon(couponId);
+    } catch (err) {
+      console.warn("Could not delete coupon on backend", err);
+    }
     const updated = coupons.filter((c) => c.id !== couponId);
     saveCoupons(updated);
     if (appliedCoupon?.id === couponId) {

@@ -12,8 +12,10 @@ export interface Product {
   externalId: number;
   name: string;
   customTitle: string;
-  costPriceUsd: number;
-  retailPriceUsd: number;
+  costPriceUsd?: number | null;
+  retailPriceUsd?: number | null;
+  priceToman?: number;
+  calculatedPrice?: any;
   pricingUnit: "unit" | "per_1000";
   minQty?: number;
   maxQty?: number;

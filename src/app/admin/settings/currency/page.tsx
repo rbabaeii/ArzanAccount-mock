@@ -45,7 +45,7 @@ export default function CurrencySettingsPage() {
 
   // BrsApi Sync Config State
   const [apiKey, setApiKey] = useState<string>(
-    settings.currencyApiKey || "BNrVb9bLT9dLPpgY4UDvX8bqJTvEaqKw",
+    settings.currencyApiKey || "",
   );
   const [intervalMinutes, setIntervalMinutes] = useState<number>(
     settings.currencySyncIntervalMinutes || 15,
@@ -311,7 +311,7 @@ export default function CurrencySettingsPage() {
                 type="text"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="BNrVb9bLT9dLPpgY4UDvX8bqJTvEaqKw"
+                placeholder="کلید API سرویس استعلام ارز"
                 className="w-full bg-admin-bg dark:bg-slate-800/90 border border-admin-borderLight dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-teal-500 dark:focus:border-teal-400 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2.5 px-3 text-xs font-mono outline-none dir-ltr text-left transition-all duration-200"
                 required
               />

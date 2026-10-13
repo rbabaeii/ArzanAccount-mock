@@ -88,6 +88,33 @@ export interface AuthContextType {
   hasPermission: (section: "catalog" | "finance" | "orders" | "users" | "settings") => boolean;
 }
 
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const local = localStorage.getItem("arzan_auth_token");
+  if (local) return local;
+  if (typeof document !== "undefined") {
+    const match = document.cookie.match(/(?:^|;\s*)arzan_auth_token=([^;]+)/);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
+function saveAuthToken(token: string) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("arzan_auth_token", token);
+    const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `arzan_auth_token=${encodeURIComponent(token)}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+  }
+}
+
+function clearAuthToken() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("arzan_auth_token");
+    localStorage.removeItem("arzan_cached_user");
+    document.cookie = "arzan_auth_token=; path=/; max-age=0; SameSite=Lax";
+  }
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -101,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         if (typeof window !== "undefined") {
-          const storedToken = localStorage.getItem("arzan_auth_token");
+          const storedToken = getStoredToken();
           if (storedToken) {
             setToken(storedToken);
             const me = await api.getMe().catch((e) => {
@@ -126,8 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(mergedUser);
               localStorage.setItem("arzan_cached_user", JSON.stringify(mergedUser));
             } else {
-              localStorage.removeItem("arzan_auth_token");
-              localStorage.removeItem("arzan_cached_user");
+              clearAuthToken();
               setToken(null);
             }
           }
@@ -180,7 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(res.user);
 
         if (typeof window !== "undefined") {
-          localStorage.setItem("arzan_auth_token", res.accessToken);
+          saveAuthToken(res.accessToken);
           localStorage.setItem("arzan_cached_user", JSON.stringify(res.user));
         }
 
@@ -210,7 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(mockToken);
         setUser(fallbackUser);
         if (typeof window !== "undefined") {
-          localStorage.setItem("arzan_auth_token", mockToken);
+          saveAuthToken(mockToken);
           localStorage.setItem("arzan_cached_user", JSON.stringify(fallbackUser));
         }
         setIsLoginModalOpen(false);
@@ -268,7 +294,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(res.accessToken);
         setUser(res.user);
         if (typeof window !== "undefined") {
-          localStorage.setItem("arzan_auth_token", res.accessToken);
+          saveAuthToken(res.accessToken);
           localStorage.setItem("arzan_cached_user", JSON.stringify(res.user));
         }
         setIsLoginModalOpen(false);
@@ -286,7 +312,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(res.accessToken);
       setUser(res.user);
       if (typeof window !== "undefined") {
-        localStorage.setItem("arzan_auth_token", res.accessToken);
+        saveAuthToken(res.accessToken);
         localStorage.setItem("arzan_cached_user", JSON.stringify(res.user));
       }
       setIsLoginModalOpen(false);
@@ -308,7 +334,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(mockToken);
         setUser(fallbackUser);
         if (typeof window !== "undefined") {
-          localStorage.setItem("arzan_auth_token", mockToken);
+          saveAuthToken(mockToken);
           localStorage.setItem("arzan_cached_user", JSON.stringify(fallbackUser));
         }
         setIsLoginModalOpen(false);
@@ -406,20 +432,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("arzan_wallet_" + user.id, String(newBalance));
       }
       return { success: true, newBalance };
-    } catch {
-      const newBalance = (user.walletBalanceToman || 0) + amountToman;
-      const newDirect = (user.directDepositBalance || 0) + amountToman;
-      const updatedUser: AuthUser = {
-        ...user,
-        walletBalanceToman: newBalance,
-        directDepositBalance: newDirect,
-      };
-      setUser(updatedUser);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("arzan_cached_user", JSON.stringify(updatedUser));
-        localStorage.setItem("arzan_wallet_" + user.id, String(newBalance));
-      }
-      return { success: true, newBalance };
+    } catch (err: any) {
+      console.error("Top-up wallet failed:", err);
+      throw err;
     }
   };
 
@@ -434,21 +449,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("arzan_cached_user", JSON.stringify(updatedUser));
       }
       return { success: true, coupon: res.coupon };
-    } catch {
-      const remaining = Math.max(0, (user.clubPoints || 150) - points);
-      const updatedUser: AuthUser = { ...user, clubPoints: remaining };
-      setUser(updatedUser);
-      if (typeof window !== "undefined") {
-        localStorage.setItem("arzan_cached_user", JSON.stringify(updatedUser));
-      }
-      return {
-        success: true,
-        coupon: {
-          code: `CLUB-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-          discountPercent: Math.min(30, Math.max(5, Math.floor(points / 10))),
-          pointsUsed: points,
-        },
-      };
+    } catch (err: any) {
+      console.error("Convert club points failed:", err);
+      throw err;
     }
   };
 
@@ -487,6 +490,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setToken(null);
     if (typeof window !== "undefined") {
+      clearAuthToken();
       const theme = localStorage.getItem("arzan_theme");
       // Wipe all localStorage items (including cart arzan_cart_v2, auth tokens, cached user)
       localStorage.clear();

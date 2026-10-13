@@ -272,8 +272,8 @@ export default function AdminProductsPage() {
     setEditPersianDescription(product.persianDescription || "");
     setEditBadge(product.badge || "");
 
-    setEditCostPriceUsd(product.costPriceUsd);
-    setEditRetailPriceUsd(product.retailPriceUsd ?? product.costPriceUsd);
+    setEditCostPriceUsd(product.costPriceUsd || 0);
+    setEditRetailPriceUsd(product.retailPriceUsd ?? product.costPriceUsd ?? 0);
     setEditMargin(product.customMarginPercent ?? settings.defaultMarginPercent);
     setEditSalePriceToman(product.salePriceToman ? String(product.salePriceToman) : "");
     setEditDiscountPercent(product.discountPercent ? String(product.discountPercent) : "");
@@ -413,10 +413,10 @@ export default function AdminProductsPage() {
       return stockB - stockA;
     }
     if (sortBy === "price_asc") {
-      return a.costPriceUsd - b.costPriceUsd;
+      return (a.costPriceUsd ?? 0) - (b.costPriceUsd ?? 0);
     }
     if (sortBy === "price_desc") {
-      return b.costPriceUsd - a.costPriceUsd;
+      return (b.costPriceUsd ?? 0) - (a.costPriceUsd ?? 0);
     }
     if (sortBy === "margin_desc") {
       const marginA = a.customMarginPercent ?? settings.defaultMarginPercent ?? 15;
@@ -831,7 +831,7 @@ export default function AdminProductsPage() {
                     {/* Cost USD & Toman */}
                     <td className="py-3.5 px-4 font-mono">
                       <div className="font-bold text-slate-800 dark:text-slate-200">
-                        ${product.costPriceUsd.toFixed(2)}
+                        ${(product.costPriceUsd ?? 0).toFixed(2)}
                       </div>
                       <div className="text-[10px] text-neutral-400 dark:text-slate-500 font-sans">
                         {price.formattedCostToman} ت
@@ -841,7 +841,7 @@ export default function AdminProductsPage() {
                     {/* Retail USD & Toman */}
                     <td className="py-3.5 px-4 font-mono">
                       <div className="text-neutral-600 dark:text-slate-400">
-                        ${(product.retailPriceUsd || product.costPriceUsd).toFixed(2)}
+                        ${(product.retailPriceUsd ?? product.costPriceUsd ?? 0).toFixed(2)}
                       </div>
                       <div className="text-[10px] text-neutral-400 dark:text-slate-500 font-sans">
                         {price.formattedPublicRetailToman} ت

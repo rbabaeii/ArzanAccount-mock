@@ -715,6 +715,40 @@ export const api = {
     }),
 
   // CartBeCart Card-to-Card Payment API
+  // Coupons API
+  getCoupons: () => request<any[]>("/coupons"),
+  getCouponById: (id: string) => request<any>(`/coupons/${id}`),
+  createCoupon: (data: {
+    code: string;
+    discountPercent: number;
+    maxDiscountToman?: number;
+    minOrderToman?: number;
+    expiresAt?: string;
+    maxUsage?: number;
+    isActive?: boolean;
+    allowedUserIds?: any;
+  }) =>
+    request<any>("/coupons", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateCoupon: (id: string, data: Partial<{
+    discountPercent: number;
+    maxDiscountToman?: number;
+    minOrderToman?: number;
+    expiresAt?: string;
+    maxUsage?: number;
+    isActive?: boolean;
+    allowedUserIds?: any;
+  }>) =>
+    request<any>(`/coupons/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deleteCoupon: (id: string) =>
+    request<any>(`/coupons/${id}`, {
+      method: "DELETE",
+    }),
   // Validate coupon code
   validateCoupon: (code: string, userId?: string) =>
     request<any>("/coupons/validate", {

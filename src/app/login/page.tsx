@@ -84,6 +84,21 @@ const USER_ACCOUNT = {
   badge: "bg-teal-200/90 dark:bg-teal-900 text-teal-900 dark:text-teal-200",
 };
 
+function getSafeRedirectUrl(target: string | null): string {
+  if (!target) return "/";
+  const trimmed = target.trim();
+  // Must start with single '/', must not start with '//', must not contain '\' or protocol (':')
+  if (
+    trimmed.startsWith("/") &&
+    !trimmed.startsWith("//") &&
+    !trimmed.includes("\\") &&
+    !trimmed.includes(":")
+  ) {
+    return trimmed;
+  }
+  return "/";
+}
+
 function LoginContent() {
   const {
     sendOtp,
@@ -95,7 +110,7 @@ function LoginContent() {
   } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/";
+  const redirect = getSafeRedirectUrl(searchParams.get("redirect"));
   const referralParam = searchParams.get("ref") || searchParams.get("referral") || "";
 
   // Auth mode: ONLY "phone" (OTP) or "password"
