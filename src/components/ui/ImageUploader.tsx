@@ -40,9 +40,6 @@ export default function ImageUploader({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const backendUrl =
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v1\/?$/, "") ||
-    "http://localhost:4000";
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -96,9 +93,6 @@ export default function ImageUploader({
     setIsUploading(true);
     setProgress(15);
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     // Progress animation interval simulation for smooth UX
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
@@ -106,64 +100,31 @@ export default function ImageUploader({
           clearInterval(progressInterval);
           return 85;
         }
-        return prev + 15;
+        return prev + 25;
       });
-    }, 120);
+    }, 80);
 
-    try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("arzan_auth_token") : null;
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(
-        `${backendUrl}/api/v1/upload?folder=${folder}`,
-        {
-          method: "POST",
-          headers,
-          body: formData,
-        }
-      );
-
+    const reader = new FileReader();
+    reader.onload = (event) => {
       clearInterval(progressInterval);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "خطا در آپلود فایل در سرور.");
-      }
-
-      const data = await response.json();
       setProgress(100);
-
       setTimeout(() => {
         setIsUploading(false);
         setProgress(0);
-        if (data.url) {
-          onChange(data.url);
-          setUrlInput(data.url);
+        if (event.target?.result) {
+          const localUrl = event.target.result as string;
+          onChange(localUrl);
+          setUrlInput(localUrl);
         }
-      }, 400);
-    } catch (err: any) {
+      }, 250);
+    };
+    reader.onerror = () => {
       clearInterval(progressInterval);
-      console.warn("Upload to backend failed, creating local preview:", err);
-
-      // Fallback: Read as local data URL so the user experience doesn't break if backend is offline
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setProgress(100);
-        setTimeout(() => {
-          setIsUploading(false);
-          setProgress(0);
-          if (event.target?.result) {
-            const localUrl = event.target.result as string;
-            onChange(localUrl);
-            setUrlInput(localUrl);
-          }
-        }, 300);
-      };
-      reader.readAsDataURL(file);
-    }
+      setIsUploading(false);
+      setProgress(0);
+      setErrorMessage("خطا در خواندن فایل محلی.");
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUrlSubmit = (e: React.FormEvent) => {
